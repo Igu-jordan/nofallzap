@@ -1,0 +1,60 @@
+# Uso LOCAL, para testar antes de subir no EasyPanel.
+# No EasyPanel voce nao usa este arquivo: la voce cria os servicos pelo painel
+# (ver README, secao "Deploy no EasyPanel").
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nofallzap
+      POSTGRES_PASSWORD: nofallzap
+      POSTGRES_DB: nofallzap
+    ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nofallzap']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    # AOF ligado: sem isso a fila some em qualquer restart
+    command: redis-server --appendonly yes
+    ports: ['6379:6379']
+    volumes: ['redisdata:/data']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    command: ['api']
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql://nofallzap:nofallzap@postgres:5432/nofallzap
+      REDIS_URL: redis://redis:6379
+      WEBHOOK_PUBLIC_URL: http://api:3000/webhook/evolution
+    ports: ['3000:3000']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build: .
+    command: ['worker']
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql://nofallzap:nofallzap@postgres:5432/nofallzap
+      REDIS_URL: redis://redis:6379
+      WEBHOOK_PUBLIC_URL: http://api:3000/webhook/evolution
+    depends_on:
+      api: { condition: service_started }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:

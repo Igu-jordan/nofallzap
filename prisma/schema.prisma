@@ -1,0 +1,239 @@
+// NoFallZap - painel multi-instancia de WhatsApp sobre Evolution API
+// Regra de ouro: nada existe fora de uma instancia. instance_id em tudo.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum InstanceStatus {
+  creating
+  awaiting_qr
+  connecting
+  connected
+  disconnected
+  reconnecting
+  error
+}
+
+enum ParticipationMode {
+  mention // so responde quando mencionado
+  always // responde toda mensagem
+  keyword // responde quando bater palavra-chave
+  smart // motor de decisao resolve (custa mais IA)
+}
+
+model Instance {
+  id       String @id @default(uuid())
+  name     String // nome interno: "WhatsApp Suporte"
+  /// instanceName na Evolution API (slug unico)
+  evoName  String @unique @map("evolution_name")
+  /// hash retornado no /instance/create
+  evoToken String? @map("evolution_token")
+  /// para quando houver mais de um container da Evolution
+  evoServerId String @default("default") @map("evolution_server_id")
+
+  phoneNumber   String? @map("phone_number")
+  profileName   String? @map("profile_name")
+  profilePicUrl String? @map("profile_pic_url")
+
+  status       InstanceStatus @default(creating)
+  statusDetail String?        @map("status_detail")
+
+  /// pausa nivel INSTANCIA
+  aiEnabled Boolean @default(false) @map("ai_enabled")
+
+  /// ultimo QR recebido (base64), limpo quando conecta
+  lastQrBase64 String? @map("last_qr_base64")
+  qrUpdatedAt  DateTime? @map("qr_updated_at")
+
+  reconnectAttempts Int       @default(0) @map("reconnect_attempts")
+  lastConnectedAt   DateTime? @map("last_connected_at")
+  lastActivityAt    DateTime? @map("last_activity_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  groups   Group[]
+  messages Message[]
+  events   InstanceEvent[]
+  metrics  MetricDaily[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("instances")
+}
+
+model Agent {
+  id           String   @id @default(uuid())
+  name         String
+  systemPrompt String   @map("system_prompt")
+  model        String   @default("gpt-4o-mini")
+  temperature  Float    @default(0.7)
+  maxTokens    Int      @default(500) @map("max_tokens")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  groups Group[]
+
+  @@map("agents")
+}
+
+model Group {
+  id         String   @id @default(uuid())
+  instanceId String   @map("instance_id")
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  /// 1203...@g.us — ID vindo da Evolution API
+  remoteJid         String  @map("remote_jid")
+  subject           String?
+  description       String?
+  pictureUrl        String? @map("picture_url")
+  participantsCount Int     @default(0) @map("participants_count")
+  isCommunity       Boolean @default(false) @map("is_community")
+
+  /// PADRAO: DESLIGADO. Admin ativa grupo a grupo.
+  aiEnabled Boolean @default(false) @map("ai_enabled")
+
+  agentId String? @map("agent_id")
+  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  participationMode ParticipationMode @default(mention) @map("participation_mode")
+  keywords          String[]          @default([])
+  groupInstructions String?           @map("group_instructions")
+  cooldownSeconds   Int               @default(60) @map("cooldown_seconds")
+  dailyMessageCap   Int               @default(50) @map("daily_message_cap")
+
+  lastActivityAt DateTime? @map("last_activity_at")
+  lastReplyAt    DateTime? @map("last_reply_at")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  messages Message[]
+  memory   GroupMemory?
+  metrics  MetricDaily[]
+  events   InstanceEvent[]
+
+  /// O ISOLAMENTO VIVE AQUI: mesmo JID em instancias diferentes = linhas diferentes
+  @@unique([instanceId, remoteJid])
+  @@index([instanceId, aiEnabled])
+  @@index([instanceId, subject])
+  @@map("groups")
+}
+
+model Message {
+  id         BigInt   @id @default(autoincrement())
+  instanceId String   @map("instance_id")
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  groupId String? @map("group_id")
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  /// key.id da Evolution — base da idempotencia
+  evoKey      String  @map("evolution_key")
+  remoteJid   String  @map("remote_jid")
+  participant String?
+  pushName    String? @map("push_name")
+
+  direction   String  // inbound | outbound
+  content     String?
+  messageType String? @map("message_type")
+  isFromAi    Boolean @default(false) @map("is_from_ai")
+  raw         Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// ANTI-DUPLICATA: Evolution reenvia eventos em reconexao
+  @@unique([instanceId, evoKey])
+  @@index([instanceId, groupId, createdAt])
+  @@map("messages")
+}
+
+model GroupMemory {
+  groupId       String   @id @map("group_id")
+  group         Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  summary       String?
+  facts         Json     @default("[]")
+  lastMessageId BigInt?  @map("last_message_id")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("group_memory")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model MetricDaily {
+  id         BigInt   @id @default(autoincrement())
+  instanceId String   @map("instance_id")
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  /// null = agregado da instancia inteira
+  groupId String? @map("group_id")
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  /// Chave de unicidade. Postgres nao trata NULL como igual a NULL, entao um
+  /// unique com groupId nulo NAO impediria linhas duplicadas do agregado da
+  /// instancia. groupKey guarda o groupId ou "-" e resolve isso.
+  groupKey String @default("-") @map("group_key")
+
+  day          DateTime @db.Date
+  received     Int      @default(0)
+  processed    Int      @default(0)
+  ignoredByAi  Int      @default(0) @map("ignored_by_ai")
+  repliesSent  Int      @default(0) @map("replies_sent")
+  errors       Int      @default(0)
+  latencySumMs BigInt   @default(0) @map("latency_sum_ms")
+  latencyCount Int      @default(0) @map("latency_count")
+  aiTokensIn   BigInt   @default(0) @map("ai_tokens_in")
+  aiTokensOut  BigInt   @default(0) @map("ai_tokens_out")
+
+  @@unique([instanceId, groupKey, day])
+  @@index([instanceId, day])
+  @@index([groupId, day])
+  @@map("metrics_daily")
+}
+
+model InstanceEvent {
+  id         BigInt   @id @default(autoincrement())
+  instanceId String   @map("instance_id")
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  groupId String? @map("group_id")
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  level     String // info | warn | error
+  event     String // qr_generated | connected | disconnected | groups_synced | ...
+  message   String?
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([instanceId, createdAt])
+  @@index([level, createdAt])
+  @@map("instance_events")
+}
+
+/// Eventos de webhook que nao casaram com nenhuma instancia.
+/// Regra da spec: NUNCA processar mensagem sem identificar a instancia.
+model OrphanEvent {
+  id           BigInt   @id @default(autoincrement())
+  evoName      String?  @map("evolution_name")
+  event        String
+  payload      Json
+  receivedAt   DateTime @default(now()) @map("received_at")
+
+  @@index([receivedAt])
+  @@map("orphan_events")
+}
