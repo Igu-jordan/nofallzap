@@ -3,10 +3,22 @@ import { env } from './config/env.js';
 import { log } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { createQueueConnection, publishRealtime } from './lib/redis.js';
-import { QUEUE_INGEST, type IngestJob } from './queues/index.js';
+import {
+  QUEUE_INGEST,
+  QUEUE_DECIDE,
+  sendQueueName,
+  scheduleGroupDecision,
+  type IngestJob,
+  type DecideJob,
+  type SendJob,
+} from './queues/index.js';
 import * as service from './services/instanceService.js';
 import { syncGroups, backfillIncompleteGroups, upsertGroupFromEvent } from './services/groupSync.js';
 import { logEvent, bumpMetricBoth } from './services/eventLog.js';
+import { processGroupDecision } from './services/replyEngine.js';
+import { processSend } from './services/sender.js';
+import { acquireLock, releaseLock } from './lib/redis.js';
+import { invalidateManagedNumbers } from './services/decisionGate.js';
 
 /**
  * WORKER — FILA 1 (ingest).
@@ -57,6 +69,9 @@ async function handleConnectionUpdate(job: IngestJob) {
 
     // pos-conexao: perfil + grupos. Nao bloqueia o job.
     await service.syncProfile(job.instanceId);
+    // o numero acabou de entrar na lista de gerenciados (filtro anti-loop)
+    invalidateManagedNumbers();
+
     const res = await syncGroups(job.instanceId);
 
     // Bug conhecido: parte dos grupos volta sem nome logo apos conectar,
@@ -67,6 +82,23 @@ async function handleConnectionUpdate(job: IngestJob) {
           log.warn('backfill.failed', { error: (e as Error).message }),
         );
       }, 20_000);
+    }
+
+    // Lista VAZIA logo apos conectar nao prova que o numero nao tem grupos:
+    // o Baileys pode ainda nao ter recebido a lista. Tenta de novo em 30s e
+    // em 2min. Se continuar vazio, o numero realmente nao esta em grupo algum.
+    if (res.total === 0) {
+      for (const delay of [30_000, 120_000]) {
+        setTimeout(() => {
+          syncGroups(job.instanceId)
+            .then((r) => {
+              if (r.total > 0) {
+                log.info('groups.lateSync', { instanceId: job.instanceId, total: r.total });
+              }
+            })
+            .catch((e) => log.warn('groups.retryFailed', { error: (e as Error).message }));
+        }, delay);
+      }
     }
     return;
   }
@@ -189,18 +221,16 @@ async function handleMessage(job: IngestJob, outbound = false) {
     }
 
     // ------------------------------------------------------------------
-    // GANCHO DA FASE 5 (motor de IA).
+    // FILA 2: agenda (ou reagenda) a decisao deste grupo.
     //
-    // Aqui entra:
-    //   if (isGroup && !fromMe) {
-    //     await scheduleGroupDecision(job.instanceId, groupId!, env.GROUP_DEBOUNCE_MS);
-    //   }
-    //
-    // O debounce faz 5 mensagens em rajada virarem 1 job (jobId
-    // deterministico grp:{instanceId}:{groupId}), o que garante ordem e
-    // evita a IA responder cinco vezes ao mesmo bloco.
-    // Deixado comentado de proposito: esta versao nao responde nada ainda.
+    // jobId deterministico grp:{instanceId}:{groupId} + delay = debounce.
+    // Cinco mensagens em rajada viram UM job: a IA responde uma vez ao bloco
+    // inteiro em vez de cinco vezes, e a ordem fica garantida porque nunca
+    // existe mais de um job por grupo ao mesmo tempo.
     // ------------------------------------------------------------------
+    if (isGroup && groupId && !fromMe && !outbound) {
+      await scheduleGroupDecision(job.instanceId, groupId, env.GROUP_DEBOUNCE_MS);
+    }
   }
 }
 
@@ -282,6 +312,108 @@ worker.on('failed', (job, err) => {
 
 worker.on('ready', () => log.info('worker.ready', { concurrency: env.WORKER_CONCURRENCY }));
 
+// ------------------------------------------------ FILA 2: decide (por grupo)
+//
+// Concorrencia 5: cinco GRUPOS DIFERENTES processam em paralelo, mas o mesmo
+// grupo nunca — garantido pelo jobId deterministico do debounce mais o lock
+// abaixo, que e o cinto de seguranca contra worker duplicado.
+
+const decideWorker = new Worker<DecideJob>(
+  QUEUE_DECIDE,
+  async (job: Job<DecideJob>) => {
+    const { instanceId, groupId } = job.data;
+    const key = `grp:${instanceId}:${groupId}`;
+
+    if (!(await acquireLock(key, 120_000))) {
+      log.debug('decide.lockBusy', { key });
+      return;
+    }
+    try {
+      await processGroupDecision(instanceId, groupId);
+    } finally {
+      await releaseLock(key);
+    }
+  },
+  { connection: createQueueConnection(), concurrency: 5 },
+);
+
+decideWorker.on('failed', (job, err) => {
+  log.error('decide.jobFailed', {
+    instanceId: job?.data?.instanceId,
+    groupId: job?.data?.groupId,
+    attempt: job?.attemptsMade,
+    error: err.message,
+  });
+});
+
+decideWorker.on('ready', () => log.info('decideWorker.ready'));
+
+// ------------------------------------------ FILA 3: send (uma por instancia)
+//
+// Uma fila e um worker por numero, cada um com seu proprio rate limit. E isto
+// que garante o requisito da spec: um numero com alto volume nao bloqueia os
+// demais.
+
+const sendWorkers = new Map<string, Worker<SendJob>>();
+
+function ensureSendWorker(instanceId: string) {
+  if (sendWorkers.has(instanceId)) return;
+
+  const w = new Worker<SendJob>(
+    sendQueueName(instanceId),
+    async (job: Job<SendJob>) => processSend(job.data),
+    {
+      connection: createQueueConnection(),
+      concurrency: 1, // um envio por vez por numero: nada de rajada
+      limiter: { max: env.SEND_RATE_PER_MINUTE, duration: 60_000 },
+    },
+  );
+
+  w.on('failed', (job, err) =>
+    log.error('send.jobFailed', {
+      instanceId,
+      groupId: job?.data?.groupId,
+      attempt: job?.attemptsMade,
+      error: err.message,
+    }),
+  );
+
+  sendWorkers.set(instanceId, w);
+  log.info('sendWorker.started', { instanceId, ratePerMinute: env.SEND_RATE_PER_MINUTE });
+}
+
+/** Sobe workers de envio para instancias novas e derruba os de instancias removidas. */
+async function syncSendWorkers() {
+  const instances = await prisma.instance.findMany({
+    where: { deletedAt: null },
+    select: { id: true },
+  });
+  const live = new Set(instances.map((i) => i.id));
+
+  for (const id of live) ensureSendWorker(id);
+
+  for (const [id, w] of sendWorkers) {
+    if (!live.has(id)) {
+      await w.close().catch(() => undefined);
+      sendWorkers.delete(id);
+      log.info('sendWorker.stopped', { instanceId: id });
+    }
+  }
+
+  // a lista de numeros gerenciados alimenta o filtro anti-loop
+  invalidateManagedNumbers();
+}
+
+void syncSendWorkers().catch((err) =>
+  log.error('sendWorkers.initFailed', { error: (err as Error).message }),
+);
+
+const sendWorkerTimer = setInterval(() => {
+  void syncSendWorkers().catch((err) =>
+    log.warn('sendWorkers.syncFailed', { error: (err as Error).message }),
+  );
+}, 30_000);
+
 // ------------------------------------------------- reconciliacao periodica
 const reconcileTimer = setInterval(() => {
   service.reconcileAll().catch((err) =>
@@ -294,8 +426,11 @@ log.info('worker.started');
 async function shutdown(signal: string) {
   log.info('worker.shutdown', { signal });
   clearInterval(reconcileTimer);
+  clearInterval(sendWorkerTimer);
   try {
     await worker.close();
+    await decideWorker.close();
+    await Promise.all([...sendWorkers.values()].map((w) => w.close().catch(() => undefined)));
     await prisma.$disconnect();
   } finally {
     process.exit(0);

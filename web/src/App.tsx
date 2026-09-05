@@ -3,6 +3,7 @@ import { api } from './api';
 import { on } from './socket';
 import { Instances } from './pages/Instances';
 import { InstanceDetail } from './pages/InstanceDetail';
+import { Agents } from './pages/Agents';
 
 export default function App() {
   const [route, setRoute] = useState(() => window.location.hash.slice(1));
@@ -49,6 +50,13 @@ export default function App() {
           No<span>Fall</span>Zap
         </div>
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>Painel multi-instância</span>
+        <button
+          className="btn btn-sm"
+          style={{ marginLeft: 8 }}
+          onClick={() => (window.location.hash = '/agentes')}
+        >
+          Agentes
+        </button>
         <div className="spacer" />
         <button
           className={`kill-switch ${aiEnabled ? '' : 'paused'}`}
@@ -66,7 +74,9 @@ export default function App() {
           </div>
         )}
 
-        {instanceId ? (
+        {route === '/agentes' ? (
+          <Agents onBack={() => (window.location.hash = '')} />
+        ) : instanceId ? (
           <InstanceDetail id={instanceId} onBack={() => (window.location.hash = '')} />
         ) : (
           <Instances onOpen={(id) => (window.location.hash = `/instance/${id}`)} />

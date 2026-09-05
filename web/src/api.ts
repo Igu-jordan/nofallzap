@@ -50,8 +50,20 @@ export interface GroupRow {
 export interface AgentRow {
   id: string;
   name: string;
+  systemPrompt: string;
   model: string;
+  temperature: number;
+  maxTokens: number;
   isActive: boolean;
+}
+
+export interface AgentInput {
+  name: string;
+  systemPrompt: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  isActive?: boolean;
 }
 
 export interface EventRow {
@@ -129,7 +141,19 @@ export const api = {
   listEvents: (id: string, level?: string) =>
     call<EventRow[]>(`/api/instances/${id}/events${level ? `?level=${level}` : ''}`),
   listAgents: () => call<AgentRow[]>('/api/agents'),
+  createAgent: (data: AgentInput) =>
+    call<AgentRow>('/api/agents', { method: 'POST', body: JSON.stringify(data) }),
+  patchAgent: (id: string, data: Partial<AgentInput>) =>
+    call<AgentRow>(`/api/agents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteAgent: (id: string) => call<{ ok: boolean }>(`/api/agents/${id}`, { method: 'DELETE' }),
 };
+
+export const MODELS = [
+  { value: 'gpt-4o-mini', label: 'gpt-4o-mini — barato, bom para o dia a dia' },
+  { value: 'gpt-4o', label: 'gpt-4o — mais caro, respostas melhores' },
+  { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini' },
+  { value: 'gpt-4.1', label: 'gpt-4.1' },
+];
 
 export const STATUS_LABEL: Record<InstanceStatus, string> = {
   creating: 'Criando',

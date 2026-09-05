@@ -111,6 +111,9 @@ model Group {
 
   lastActivityAt DateTime? @map("last_activity_at")
   lastReplyAt    DateTime? @map("last_reply_at")
+  /// ate onde o motor de decisao ja leu. Evita reprocessar as mesmas
+  /// mensagens quando um novo bloco chega.
+  lastProcessedMessageId BigInt? @map("last_processed_message_id")
   isActive       Boolean   @default(true) @map("is_active")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")

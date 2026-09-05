@@ -30,6 +30,18 @@ const schema = z.object({
   // Janela de debounce por grupo antes de acionar o motor de decisao
   GROUP_DEBOUNCE_MS: z.coerce.number().default(10000),
 
+  // ------------------------------------------------------------------ IA
+  AI_PROVIDER: z.enum(['openai']).default('openai'),
+  OPENAI_API_KEY: z.string().default(''),
+  OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
+  AI_DEFAULT_MODEL: z.string().default('gpt-4o-mini'),
+  /// quantas mensagens recentes entram no contexto enviado ao modelo
+  AI_CONTEXT_MESSAGES: z.coerce.number().default(20),
+  /// a partir de quantas mensagens novas o grupo ganha um resumo de memoria
+  AI_MEMORY_THRESHOLD: z.coerce.number().default(60),
+  /// teto de mensagens novas processadas de uma vez por grupo
+  AI_BATCH_LIMIT: z.coerce.number().default(30),
+
   HEALTHCHECK_INTERVAL_MS: z.coerce.number().default(60000),
   WORKER_CONCURRENCY: z.coerce.number().default(20),
   LOG_LEVEL: z.string().default('info'),
