@@ -63,6 +63,17 @@ async function request<T>(
       throw new EvolutionError(`Evolution API ${res.status} em ${method} ${path}`, res.status, parsed);
     }
 
+    // A Evolution as vezes devolve HTTP 200 com {"error":true} no corpo —
+    // /instance/restart faz isso. Sem esta checagem, uma falha passa por
+    // sucesso e o problema so aparece la na frente, mascarado.
+    const asObj = parsed as { error?: unknown; message?: unknown } | null;
+    if (asObj && typeof asObj === 'object' && asObj.error === true) {
+      const detail =
+        typeof asObj.message === 'string' ? asObj.message : JSON.stringify(asObj.message ?? {});
+      log.warn('evolution.request.softError', { method, path, detail });
+      throw new EvolutionError(`Evolution API recusou ${method} ${path}: ${detail}`, 200, parsed);
+    }
+
     return parsed as T;
   } catch (err) {
     if (err instanceof EvolutionError) throw err;

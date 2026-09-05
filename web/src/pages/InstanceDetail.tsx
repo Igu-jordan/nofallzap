@@ -570,7 +570,14 @@ function Connection({
           <button
             className="btn"
             disabled={busy !== null}
-            onClick={() => void run('reconnect', () => api.reconnect(data.id))}
+            onClick={() =>
+              void run('reconnect', async () => {
+                const res = await api.reconnect(data.id);
+                // sessao morta: nao adianta ficar tentando, abre o QR direto
+                if (res.needsQr) onOpenQr();
+                return res;
+              })
+            }
           >
             {busy === 'reconnect' ? 'Reconectando…' : 'Reconectar'}
           </button>

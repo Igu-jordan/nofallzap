@@ -161,10 +161,25 @@ export async function instanceRoutes(app: FastifyInstance) {
 
     try {
       await service.setStatus(id, 'reconnecting', 'Reconexao solicitada pelo painel');
-      await evo.restartInstance(instance.evoName).catch(() => undefined);
+
+      // O restart falha com frequencia quando a sessao ja morreu de vez —
+      // nao e fatal, o connect abaixo resolve gerando um QR novo.
+      await evo.restartInstance(instance.evoName).catch((e) => {
+        log.info('reconnect.restartFailed', { evoName: instance.evoName, error: (e as Error).message });
+      });
+
       const qr = await service.refreshQr(id);
-      return { ok: true, needsQr: Boolean(qr.base64) };
+
+      if (qr.base64) {
+        return {
+          ok: true,
+          needsQr: true,
+          message: 'A sessao anterior expirou. Escaneie o QR Code para reconectar.',
+        };
+      }
+      return { ok: true, needsQr: false, message: 'Reconexao solicitada. Acompanhe o status.' };
     } catch (err) {
+      await service.setStatus(id, 'disconnected', (err as Error).message);
       return reply.code(502).send({ error: (err as Error).message });
     }
   });

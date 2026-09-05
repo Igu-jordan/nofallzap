@@ -118,10 +118,14 @@ export interface EventRow {
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-  });
+  // So declara JSON quando REALMENTE ha corpo. O Fastify recusa com
+  // 400 "Bad Request" um pedido que diz ser application/json e vem vazio —
+  // era o que quebrava todo POST sem corpo (reconectar, atualizar QR,
+  // desconectar, sincronizar grupos).
+  const headers: Record<string, string> = { ...((init?.headers as Record<string, string>) ?? {}) };
+  if (init?.body != null) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(path, { ...init, headers });
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
   if (!res.ok) {
@@ -171,7 +175,10 @@ export const api = {
   refreshQr: (id: string) =>
     call<{ base64: string | null }>(`/api/instances/${id}/qr/refresh`, { method: 'POST' }),
   reconnect: (id: string) =>
-    call<{ ok: boolean; needsQr: boolean }>(`/api/instances/${id}/reconnect`, { method: 'POST' }),
+    call<{ ok: boolean; needsQr: boolean; message?: string }>(
+      `/api/instances/${id}/reconnect`,
+      { method: 'POST' },
+    ),
   disconnect: (id: string) =>
     call<unknown>(`/api/instances/${id}/disconnect`, { method: 'POST' }),
   deleteInstance: (id: string, confirmName: string) =>
