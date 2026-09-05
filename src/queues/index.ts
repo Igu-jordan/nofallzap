@@ -14,7 +14,9 @@ export const QUEUE_INGEST = 'ingest';
 export const QUEUE_DECIDE = 'decide';
 export const QUEUE_SEND_PREFIX = 'send';
 
-export const sendQueueName = (instanceId: string) => `${QUEUE_SEND_PREFIX}:${instanceId}`;
+/// Separador e hifen, nao dois-pontos: o BullMQ rejeita ":" em nome de fila
+/// (ele usa ":" internamente para montar as chaves do Redis).
+export const sendQueueName = (instanceId: string) => `${QUEUE_SEND_PREFIX}-${instanceId}`;
 
 // ---------------------------------------------------------------- payloads
 
