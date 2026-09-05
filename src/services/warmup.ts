@@ -295,15 +295,25 @@ export async function runWarmupTick() {
   // -------------------------------------- 2. iniciar UMA conversa nova
   // So se sobrou alguem sem falar. Uma por tique: conversas nascendo em
   // rajada e tao artificial quanto respostas instantaneas.
-  if (eligible.size >= 2 && spoke.size === 0) {
-    await maybeStartConversation(cfg, [...eligible].map((id) => byId.get(id)!), now);
+  //
+  // Basta UM numero livre para puxar assunto. Exigir que os dois estivessem
+  // livres no mesmo minuto travava tudo: o parceiro em descanso longo
+  // segurava a dupla inteira. Quem recebe responde na vez dele, quando
+  // estiver livre — e ai que o teto e o rate dele sao conferidos.
+  if (spoke.size === 0 && eligible.size >= 1 && pool.length >= 2) {
+    await maybeStartConversation(cfg, [...eligible].map((id) => byId.get(id)!), pool, now);
   }
 }
 
 /** Abre uma conversa entre a dupla que esta ha mais tempo sem se falar. */
-async function maybeStartConversation(cfg: WarmupConfig, candidates: Instance[], now: Date) {
+async function maybeStartConversation(
+  cfg: WarmupConfig,
+  candidates: Instance[],
+  pool: Instance[],
+  now: Date,
+) {
   const starter = candidates[Math.floor(Math.random() * candidates.length)];
-  const others = candidates.filter((i) => i.id !== starter.id);
+  const others = pool.filter((i) => i.id !== starter.id);
   if (others.length === 0) return;
 
   const scored = await Promise.all(
