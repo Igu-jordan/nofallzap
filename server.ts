@@ -1,0 +1,75 @@
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { existsSync } from 'node:fs';
+
+import { env } from './config/env.js';
+import { log } from './lib/logger.js';
+import { prisma } from './lib/prisma.js';
+import { attachRealtime } from './realtime/io.js';
+import { webhookRoutes } from './routes/webhook.js';
+import { instanceRoutes } from './routes/instances.js';
+import { groupRoutes } from './routes/groups.js';
+import { settingsRoutes } from './routes/settings.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// dist/server.js -> raiz do projeto -> web/dist
+const WEB_DIST = join(__dirname, '..', 'web', 'dist');
+
+const app = Fastify({
+  logger: false,
+  bodyLimit: 10 * 1024 * 1024, // payloads da Evolution com base64 sao grandes
+  trustProxy: true,
+});
+
+await app.register(cors, { origin: true, credentials: true });
+
+// ------------------------------------------------------------------- rotas
+await app.register(webhookRoutes);
+await app.register(instanceRoutes);
+await app.register(groupRoutes);
+await app.register(settingsRoutes);
+
+// --------------------------------------------------- painel (SPA compilada)
+if (existsSync(WEB_DIST)) {
+  await app.register(fastifyStatic, { root: WEB_DIST, prefix: '/' });
+
+  // qualquer rota que nao for /api nem /webhook devolve o index.html
+  app.setNotFoundHandler((req, reply) => {
+    if (req.url.startsWith('/api') || req.url.startsWith('/webhook')) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+    return reply.sendFile('index.html');
+  });
+  log.info('server.staticEnabled', { root: WEB_DIST });
+} else {
+  log.warn('server.noWebBuild', {
+    msg: 'web/dist nao encontrado — rode `npm run build:web`. A API funciona normalmente.',
+  });
+}
+
+// ------------------------------------------------------------------- start
+try {
+  await app.listen({ port: env.PORT, host: env.HOST });
+  attachRealtime(app.server);
+  log.info('server.started', { port: env.PORT, webhook: env.WEBHOOK_PUBLIC_URL });
+} catch (err) {
+  log.error('server.startFailed', { error: (err as Error).message });
+  process.exit(1);
+}
+
+// --------------------------------------------------------------- shutdown
+async function shutdown(signal: string) {
+  log.info('server.shutdown', { signal });
+  try {
+    await app.close();
+    await prisma.$disconnect();
+  } finally {
+    process.exit(0);
+  }
+}
+
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));

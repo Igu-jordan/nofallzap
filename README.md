@@ -4,10 +4,8 @@ Painel multi-instância de WhatsApp sobre a **Evolution API**. Conecta vários
 números ao mesmo tempo, cada um como uma instância independente, com isolamento
 total entre eles.
 
-Esta é a **fase 1–4** do roadmap: instâncias, QR Code ao vivo, webhook
-multi-instância, sincronização de grupos e toggle de IA por grupo.
-O motor de IA (fase 5) ainda **não responde nada** — o gancho está marcado no
-código, em `src/worker.ts`.
+Fases 1–5 do roadmap: instâncias, QR Code ao vivo, webhook multi-instância,
+sincronização de grupos, agentes e o motor de IA respondendo nos grupos.
 
 ---
 
@@ -24,6 +22,9 @@ código, em `src/worker.ts`.
 - Pausa por instância e por grupo
 - Desconectar ≠ Excluir (exclusão exige digitar o nome exato)
 - Logs por instância e métricas diárias
+- **Agentes** com prompt próprio, modelo e criatividade, reutilizáveis entre grupos
+- **Motor de IA** com debounce por grupo, memória resumida e ritmo humano no envio
+- **Filtro anti-loop**: mensagens vindas de qualquer número do próprio painel são ignoradas
 
 ---
 
@@ -54,9 +55,14 @@ restart.
 ### 4. `nofallzap-worker`
 
 - Mesmo repositório, mesmo Dockerfile
-- **Comando:** `worker`
+- **Comando:** `/app/docker-entrypoint.sh worker`
 - **Sem porta e sem domínio**
 - Pode escalar para 2, 3 réplicas quando o volume crescer
+
+> **Atenção ao campo Comando.** O EasyPanel **substitui o entrypoint** da
+> imagem, não só o CMD. Se você puser apenas `worker`, o container roda
+> `sh -c worker` e morre com `worker: not found`. Tem que ser o caminho
+> completo do script.
 
 ### 5. Variáveis de ambiente
 
@@ -132,7 +138,8 @@ npm --prefix web run dev   # painel na 5173, com proxy para a 3000
       ▼
  FILA 2: decide          jobId = grp:{instance_id}:{group_id} + debounce
       │                  5 mensagens em rajada = 1 processamento
-      ▼                  ← FASE 5 (IA) entra aqui
+      │                  portão de decisão → prompt → OpenAI
+      ▼
  FILA 3: send:{instance} rate limit POR INSTÂNCIA
                          presença "digitando" + delay humano
 ```
@@ -181,17 +188,26 @@ prisma/schema.prisma        modelo de dados
 
 ---
 
-## Próximos passos (fase 5+)
+## Como ligar a IA em um grupo
 
-1. Motor de IA: provider abstraído, prompt composto
-   (`base + agente + instruções do grupo + memória + contexto + mensagem`)
-2. Fila de envio com rate limit, jitter e presença "digitando"
-3. Memória resumida por grupo
-4. Filtro anti-loop: ignorar mensagens vindas de qualquer número gerenciado
-   pelo próprio painel — sem isso, dois números seus no mesmo grupo conversam
-   entre si para sempre
-5. Autenticação do painel (hoje as variáveis `PANEL_*` existem mas o login
-   ainda não está plugado — **não exponha o domínio publicamente sem isso**)
+1. Ponha a `OPENAI_API_KEY` nas variáveis de ambiente da **api e do worker**
+2. No painel, aba **Agentes** → crie um agente com o prompt dele
+3. Abra a instância → aba **Grupos** → escolha o agente no grupo
+4. Ligue o toggle de IA **do grupo**
+5. Ligue a IA **da instância** (aba Configurações da instância)
+6. Confirme que o botão vermelho no topo não está em pausa global
+
+Os cinco níveis precisam estar ligados. Quando a IA não responde, a aba
+**Logs** diz exatamente por quê (`ai_skipped` traz o motivo em texto).
+
+## Próximos passos
+
+1. Autenticação do painel (as variáveis `PANEL_*` existem mas o login ainda
+   não está plugado — hoje a proteção é o Basic Auth do EasyPanel)
+2. Modo de participação "inteligente" (a IA decide sozinha se entra na
+   conversa) — dobra o custo por grupo, ficou para depois
+3. Horário de funcionamento por grupo
+4. Ramp-up automático do teto diário para maturação de chip novo
 
 ---
 

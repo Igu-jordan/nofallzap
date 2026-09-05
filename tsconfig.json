@@ -1,22 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2023",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2023"],
-    "outDir": "dist",
-    "rootDir": "src",
+    "jsx": "react-jsx",
     "strict": true,
-    "esModuleInterop": true,
     "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
     "resolveJsonModule": true,
-    "forceConsistentCasingInFileNames": true,
-    "sourceMap": true,
-    "declaration": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "verbatimModuleSyntax": false
+    "esModuleInterop": true
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "web"]
+  "include": ["src"]
 }
