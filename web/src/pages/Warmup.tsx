@@ -75,6 +75,24 @@ export function Warmup({ onBack }: { onBack: () => void }) {
     }
   }
 
+  async function reset() {
+    const ok = window.confirm(
+      'Apagar todo o histórico de aquecimento do painel e recomeçar do zero?\n\n' +
+        'As conversas que já foram para o WhatsApp continuam nos aparelhos — ' +
+        'some só o histórico daqui, e a próxima conversa nasce limpa.',
+    );
+    if (!ok) return;
+    setSaving(true);
+    try {
+      await api.resetWarmup();
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading || !cfg) return <div className="empty">Carregando maturação…</div>;
 
   const ativos = rows.filter((r) => r.warmupEnabled && r.status === 'connected').length;
@@ -280,7 +298,13 @@ export function Warmup({ onBack }: { onBack: () => void }) {
       </div>
 
       {/* ------------------------------------------------------- conversas */}
-      <div style={{ fontWeight: 600, marginBottom: 10 }}>Conversas geradas</div>
+      <div className="toolbar" style={{ marginBottom: 10 }}>
+        <div style={{ fontWeight: 600 }}>Conversas geradas</div>
+        <div className="spacer" />
+        <button className="btn btn-sm btn-danger" disabled={saving} onClick={() => void reset()}>
+          Zerar histórico
+        </button>
+      </div>
       {threads.length === 0 ? (
         <div className="empty">
           Nenhuma conversa ainda. Ligue o aquecimento em pelo menos dois números conectados.

@@ -221,6 +221,11 @@ export const api = {
       body: JSON.stringify({ warmupEnabled }),
     }),
   warmupThreads: () => call<WarmupThread[]>('/api/warmup/threads'),
+
+  resetWarmup: () =>
+    call<{ ok: boolean; messagesDeleted: number; threadsDeleted: number }>('/api/warmup/reset', {
+      method: 'POST',
+    }),
   createAgent: (data: AgentInput) =>
     call<AgentRow>('/api/agents', { method: 'POST', body: JSON.stringify(data) }),
   patchAgent: (id: string, data: Partial<AgentInput>) =>

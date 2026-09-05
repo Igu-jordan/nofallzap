@@ -11,6 +11,10 @@ export const WEBHOOK_EVENTS = [
   'QRCODE_UPDATED',
   'CONNECTION_UPDATE',
   'MESSAGES_UPSERT',
+  // MESSAGES_UPDATE traz o veredito do WhatsApp sobre o que voce mandou.
+  // Sem ele, o painel diz "enviada" para mensagem que o WhatsApp recusou:
+  // a Evolution devolve 200 no envio e so depois avisa status ERROR.
+  'MESSAGES_UPDATE',
   'SEND_MESSAGE',
   'GROUPS_UPSERT',
   'GROUPS_UPDATE',

@@ -176,6 +176,46 @@ export async function warmupRoutes(app: FastifyInstance) {
     return updated;
   });
 
+  /**
+   * ZERAR — apaga o historico de aquecimento e recomeca do zero.
+   *
+   * Apaga apenas o que o painel gerou: as conversas no WhatsApp continuam
+   * nos aparelhos. Serve para quando o historico ficou torto (ordem errada,
+   * mensagem que nao saiu) e voce quer comecar uma conversa limpa.
+   */
+  app.post('/api/warmup/reset', async () => {
+    const messages = await prisma.warmupMessage.deleteMany({});
+    const threads = await prisma.warmupThread.deleteMany({});
+
+    const instances = await prisma.instance.findMany({
+      where: { deletedAt: null, warmupEnabled: true },
+      select: { id: true },
+    });
+
+    const now = new Date();
+    await prisma.instance.updateMany({
+      where: { id: { in: instances.map((i) => i.id) } },
+      // rampa recomeca hoje e todo mundo fica livre para falar agora
+      data: { warmupStartedAt: now, nextWarmupAt: now },
+    });
+
+    for (const i of instances) {
+      await logEvent({
+        instanceId: i.id,
+        level: 'info',
+        event: 'warmup_reset',
+        message: 'historico de aquecimento zerado; a conversa recomeca do zero',
+      });
+    }
+
+    return {
+      ok: true,
+      messagesDeleted: messages.count,
+      threadsDeleted: threads.count,
+      instancesReset: instances.length,
+    };
+  });
+
   /** Conversas de aquecimento, para conferir se o texto ficou natural. */
   app.get('/api/warmup/threads', async () => {
     const threads = await prisma.warmupThread.findMany({

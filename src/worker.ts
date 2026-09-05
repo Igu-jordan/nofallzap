@@ -246,6 +246,39 @@ async function handleGroupsUpsert(job: IngestJob) {
   }
 }
 
+/**
+ * MESSAGES_UPDATE — o veredito do WhatsApp sobre o que a instancia mandou.
+ *
+ * A Evolution responde 200 no /message/sendText assim que o Baileys aceita a
+ * mensagem, muito antes de o WhatsApp dizer se aceitou entregar. Quando o
+ * numero esta limitado, o que volta aqui e status ERROR — e sem escutar este
+ * evento o painel jura que a mensagem foi enviada. Registrar o erro e a
+ * diferenca entre "o painel esta mentindo" e "o numero esta com problema".
+ */
+async function handleMessageUpdate(job: IngestJob) {
+  const raw = job.data as
+    | { status?: string; keyId?: string; key?: { id?: string; remoteJid?: string } }
+    | Array<{ status?: string; keyId?: string; key?: { id?: string; remoteJid?: string } }>
+    | null;
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
+  for (const u of list) {
+    const status = String(u?.status ?? '').toUpperCase();
+    if (status !== 'ERROR') continue;
+
+    const jid = u?.key?.remoteJid ?? '';
+    await bumpMetricBoth(job.instanceId, null, 'errors');
+    await logEvent({
+      instanceId: job.instanceId,
+      level: 'error',
+      event: 'delivery_failed',
+      message: `O WhatsApp recusou a entrega${jid ? ` para ${jid.split('@')[0]}` : ''}. Numero provavelmente limitado.`,
+      broadcast: true,
+    });
+    log.warn('delivery.rejected', { instanceId: job.instanceId, jid, keyId: u?.key?.id ?? u?.keyId });
+  }
+}
+
 async function handleLogout(job: IngestJob) {
   await service.setStatus(job.instanceId, 'disconnected', 'Sessao encerrada no aparelho');
   await logEvent({
@@ -273,6 +306,8 @@ const worker = new Worker<IngestJob>(
         return handleMessage(payload, false);
       case 'SEND_MESSAGE':
         return handleMessage(payload, true);
+      case 'MESSAGES_UPDATE':
+        return handleMessageUpdate(payload);
       case 'GROUPS_UPSERT':
       case 'GROUPS_UPDATE':
         return handleGroupsUpsert(payload);
