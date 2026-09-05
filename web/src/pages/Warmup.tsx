@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   api,
   timeAgo,
+  timeUntil,
+  formatDate,
   MODELS,
   type WarmupConfig,
   type WarmupInstance,
@@ -38,6 +40,13 @@ export function Warmup({ onBack }: { onBack: () => void }) {
     const t = setInterval(() => void load(), 30_000);
     return () => clearInterval(t);
   }, [load]);
+
+  // o contador desce a cada segundo sem bater na API — so o relogio anda
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   async function patch(data: Partial<WarmupConfig>) {
     if (!cfg) return;
@@ -170,11 +179,11 @@ export function Warmup({ onBack }: { onBack: () => void }) {
           <thead>
             <tr>
               <th style={{ width: 60 }}>Aquecer</th>
-              <th>Número</th>
-              <th style={{ width: 130 }}>Status</th>
-              <th style={{ width: 110 }}>Hoje</th>
-              <th style={{ width: 110 }}>Dias</th>
-              <th style={{ width: 130 }}>Próxima</th>
+              <th style={{ width: 200 }}>Número</th>
+              <th style={{ width: 110 }}>Status</th>
+              <th style={{ width: 90 }}>Hoje</th>
+              <th style={{ width: 170 }}>Próxima mensagem</th>
+              <th>Última que enviou</th>
             </tr>
           </thead>
           <tbody>
@@ -197,23 +206,71 @@ export function Warmup({ onBack }: { onBack: () => void }) {
                 </td>
                 <td style={{ fontVariantNumeric: 'tabular-nums' }}>
                   {r.warmupEnabled ? (
-                    <span style={{ color: r.sentToday >= r.dailyCap ? 'var(--warn)' : undefined }}>
-                      {r.sentToday} / {r.dailyCap}
-                    </span>
+                    <>
+                      <span
+                        style={{ color: r.sentToday >= r.dailyCap ? 'var(--warn)' : undefined }}
+                      >
+                        {r.sentToday} / {r.dailyCap}
+                      </span>
+                      <div className="kpi-label">{r.daysWarming}d aquecendo</div>
+                    </>
                   ) : (
                     '—'
                   )}
                 </td>
-                <td style={{ color: 'var(--muted)' }}>
-                  {r.warmupEnabled ? `${r.daysWarming}d` : '—'}
+
+                <td>
+                  {!r.warmupEnabled ? (
+                    <span style={{ color: 'var(--muted)' }}>—</span>
+                  ) : r.sentToday >= r.dailyCap ? (
+                    <span style={{ color: 'var(--warn)', fontSize: 13 }}>
+                      teto do dia atingido
+                      <div className="kpi-label">volta amanhã</div>
+                    </span>
+                  ) : (
+                    <>
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          color:
+                            r.nextWarmupAt && new Date(r.nextWarmupAt).getTime() <= Date.now()
+                              ? 'var(--accent)'
+                              : undefined,
+                        }}
+                      >
+                        {timeUntil(r.nextWarmupAt)}
+                      </span>
+                      <div className="kpi-label">
+                        {r.nextWarmupAt ? formatDate(r.nextWarmupAt).split(' ')[1] : '—'}
+                        {r.intervalMinutes ? ` · intervalo sorteado: ${r.intervalMinutes} min` : ''}
+                      </div>
+                    </>
+                  )}
                 </td>
-                <td style={{ color: 'var(--muted)', fontSize: 13 }}>
-                  {r.warmupEnabled ? timeAgo(r.nextWarmupAt) : '—'}
+
+                <td style={{ fontSize: 13 }}>
+                  {r.lastText ? (
+                    <>
+                      <div style={{ color: 'var(--text)' }}>{r.lastText}</div>
+                      <div className="kpi-label">
+                        para {r.lastPartner} · {timeAgo(r.lastSentAt)}
+                      </div>
+                    </>
+                  ) : (
+                    <span style={{ color: 'var(--muted)' }}>nada enviado ainda</span>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div style={{ color: 'var(--muted)', fontSize: 13, margin: '-8px 0 20px' }}>
+        A mensagem <strong>não existe antes de ser enviada</strong> — o texto é gerado no
+        instante do disparo, com o histórico da dupla em mãos. Se fosse escrita com
+        antecedência, ela ignoraria o que a outra pessoa respondeu no meio-tempo. O que dá para
+        prever é <em>quando</em> sai, não <em>o quê</em>.
       </div>
 
       {/* ------------------------------------------------------- conversas */}

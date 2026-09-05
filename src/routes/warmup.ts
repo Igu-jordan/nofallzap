@@ -47,17 +47,57 @@ export async function warmupRoutes(app: FastifyInstance) {
 
     const totalMessages = await prisma.warmupMessage.count();
 
+    // Ultima mensagem de cada numero, para a tela mostrar o que ele acabou
+    // de mandar e para quem. Nao existe "proxima mensagem": o texto so e
+    // gerado no instante do envio, com o historico da dupla em maos.
+    const recent = await prisma.warmupMessage.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      include: { thread: true },
+    });
+
+    const nameById = new Map<string, string>(instances.map((i) => [i.id, i.name]));
+    const lastByInstance = new Map<
+      string,
+      { at: Date; text: string; partner: string }
+    >();
+
+    for (const m of recent) {
+      if (lastByInstance.has(m.fromInstanceId)) continue;
+      const partnerId =
+        m.thread.aInstanceId === m.fromInstanceId ? m.thread.bInstanceId : m.thread.aInstanceId;
+      lastByInstance.set(m.fromInstanceId, {
+        at: m.createdAt,
+        text: m.content,
+        partner: nameById.get(partnerId) ?? '?',
+      });
+    }
+
     return {
       config: cfg,
       totalMessages,
-      instances: instances.map((i) => ({
-        ...i,
-        sentToday: map.get(i.id) ?? 0,
-        dailyCap: dailyCap(cfg, i.warmupStartedAt),
-        daysWarming: i.warmupStartedAt
-          ? Math.floor((Date.now() - i.warmupStartedAt.getTime()) / 86_400_000)
-          : 0,
-      })),
+      instances: instances.map((i) => {
+        const last = lastByInstance.get(i.id);
+        // o intervalo sorteado e a distancia entre o ultimo envio e o
+        // proximo agendamento
+        const intervalMinutes =
+          last && i.nextWarmupAt
+            ? Math.round((i.nextWarmupAt.getTime() - last.at.getTime()) / 60_000)
+            : null;
+
+        return {
+          ...i,
+          sentToday: map.get(i.id) ?? 0,
+          dailyCap: dailyCap(cfg, i.warmupStartedAt),
+          daysWarming: i.warmupStartedAt
+            ? Math.floor((Date.now() - i.warmupStartedAt.getTime()) / 86_400_000)
+            : 0,
+          lastSentAt: last?.at ?? null,
+          lastText: last?.text ?? null,
+          lastPartner: last?.partner ?? null,
+          intervalMinutes,
+        };
+      }),
     };
   });
 

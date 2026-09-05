@@ -98,6 +98,10 @@ export interface WarmupInstance {
   sentToday: number;
   dailyCap: number;
   daysWarming: number;
+  lastSentAt: string | null;
+  lastText: string | null;
+  lastPartner: string | null;
+  intervalMinutes: number | null;
 }
 
 export interface WarmupThread {
@@ -248,6 +252,23 @@ export function timeAgo(iso: string | null): string {
   if (h < 24) return `há ${h} h`;
   const d = Math.floor(h / 24);
   return `há ${d} d`;
+}
+
+/**
+ * Contagem regressiva para uma data FUTURA.
+ * timeAgo() nao serve aqui: ela calcula agora - data, entao para o proximo
+ * agendamento devolvia numero negativo ("ha -12 min").
+ */
+export function timeUntil(iso: string | null): string {
+  if (!iso) return '—';
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return 'a qualquer momento';
+  const totalMin = Math.floor(diff / 60000);
+  if (totalMin < 1) return `em ${Math.ceil(diff / 1000)}s`;
+  if (totalMin < 60) return `em ${totalMin} min`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m ? `em ${h}h ${m}min` : `em ${h}h`;
 }
 
 export function formatDate(iso: string | null): string {
