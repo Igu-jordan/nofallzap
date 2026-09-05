@@ -332,6 +332,14 @@ async function maybeStartConversation(
   // se a dupla tem conversa aberta esperando resposta, nao comeca outra
   if (pick.thread?.nextTurnAt && pick.thread.nextTurnAt > now) return;
 
+  // A vez e do parceiro: nao fale por ele so porque ele esta ocupado. Ele
+  // responde quando estiver livre.
+  if (pick.thread?.nextTurnInstanceId && pick.thread.nextTurnInstanceId !== starter.id) return;
+
+  // Ninguem manda duas mensagens seguidas na mesma conversa. Vale para os
+  // threads antigos, que ficaram sem dono da vez.
+  if (pick.thread?.lastFromInstanceId === starter.id) return;
+
   const [a, b] = orderPair(starter.id, pick.partner.id);
   const thread =
     pick.thread ??
