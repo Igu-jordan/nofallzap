@@ -174,6 +174,15 @@ async function playTurn(
     data: { threadId: thread.id, fromInstanceId: sender.id, content: text },
   });
 
+  // Conversa real tem comeco, meio e fim: depois de algumas trocas as duas
+  // pessoas largam o celular e voltam ao assunto horas depois. Sem isso a
+  // dupla ficaria em ping-pong ate estourar o teto do dia na primeira hora.
+  const inBurst = await prisma.warmupMessage.count({
+    where: { threadId: thread.id, createdAt: { gte: new Date(now.getTime() - 90 * 60_000) } },
+  });
+  const burstLimit = 4 + Math.floor(Math.random() * 3); // 4 a 6 mensagens
+  const delay = inBurst >= burstLimit ? startDelay(cfg) : replyDelay(cfg);
+
   // PASSA A VEZ. O outro responde depois de um tempo de leitura humano —
   // sempre muito maior que o jitter da fila de envio, entao a ordem de
   // chegada nunca se inverte.
@@ -184,7 +193,7 @@ async function playTurn(
       messageCount: { increment: 1 },
       lastFromInstanceId: sender.id,
       nextTurnInstanceId: partner.id,
-      nextTurnAt: new Date(now.getTime() + replyDelay(cfg)),
+      nextTurnAt: new Date(now.getTime() + delay),
     },
   });
 
