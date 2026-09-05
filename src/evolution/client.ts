@@ -17,7 +17,10 @@ export const WEBHOOK_EVENTS = [
   'MESSAGES_UPDATE',
   'SEND_MESSAGE',
   'GROUPS_UPSERT',
-  'GROUPS_UPDATE',
+  // GROUP_UPDATE no singular: e assim que a Evolution nomeia. Com
+  // "GROUPS_UPDATE" a lista inteira e recusada com 400 e a instancia fica
+  // sem NENHUM webhook novo — foi o que escondeu o MESSAGES_UPDATE.
+  'GROUP_UPDATE',
   'GROUP_PARTICIPANTS_UPDATE',
   'LOGOUT_INSTANCE',
   'REMOVE_INSTANCE',

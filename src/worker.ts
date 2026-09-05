@@ -309,7 +309,8 @@ const worker = new Worker<IngestJob>(
       case 'MESSAGES_UPDATE':
         return handleMessageUpdate(payload);
       case 'GROUPS_UPSERT':
-      case 'GROUPS_UPDATE':
+      case 'GROUP_UPDATE':
+      case 'GROUPS_UPDATE': // grafia antiga, mantida por seguranca
         return handleGroupsUpsert(payload);
       case 'GROUP_PARTICIPANTS_UPDATE':
         // recontagem de participantes: barato refazer o sync do grupo
