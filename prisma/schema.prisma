@@ -47,6 +47,32 @@ model Instance {
   /// pausa nivel INSTANCIA
   aiEnabled Boolean @default(false) @map("ai_enabled")
 
+  // ---------------------------------------------------------------- RITMO
+  // Uma pessoa nao fica grudada no WhatsApp 24h por dia. O ritmo vive na
+  // INSTANCIA porque quem descansa e a pessoa (o numero), nao o papel: ela
+  // larga o celular e some de todos os grupos ao mesmo tempo.
+  rhythmEnabled Boolean @default(true) @map("rhythm_enabled")
+  /// quanto tempo fica respondendo antes de "largar o celular"
+  activeMinutes Int     @default(45) @map("active_minutes")
+  /// quanto tempo fica fora antes de voltar
+  pauseMinutes  Int     @default(90) @map("pause_minutes")
+  /// estado atual do ciclo: active | paused
+  rhythmState   String  @default("active") @map("rhythm_state")
+  /// ate quando o estado atual vale
+  rhythmUntil   DateTime? @map("rhythm_until")
+
+  /// horario de funcionamento (hora local). Uma pessoa dorme.
+  workStartHour Int    @default(8) @map("work_start_hour")
+  workEndHour   Int    @default(22) @map("work_end_hour")
+  timezone      String @default("America/Sao_Paulo")
+
+  // ------------------------------------------------------------ MATURACAO
+  /// este numero participa do aquecimento (conversa com os outros numeros)
+  warmupEnabled   Boolean   @default(false) @map("warmup_enabled")
+  warmupStartedAt DateTime? @map("warmup_started_at")
+  /// quando este numero deve mandar a proxima mensagem de aquecimento
+  nextWarmupAt    DateTime? @map("next_warmup_at")
+
   /// ultimo QR recebido (base64), limpo quando conecta
   lastQrBase64 String? @map("last_qr_base64")
   qrUpdatedAt  DateTime? @map("qr_updated_at")
@@ -226,6 +252,61 @@ model InstanceEvent {
   @@index([instanceId, createdAt])
   @@index([level, createdAt])
   @@map("instance_events")
+}
+
+/// Configuracao global do aquecimento de chip. Linha unica (id = "default").
+model WarmupConfig {
+  id      String  @id @default("default")
+  enabled Boolean @default(false)
+
+  /// janela do dia em que o aquecimento acontece (hora local)
+  startHour Int    @default(8) @map("start_hour")
+  endHour   Int    @default(22) @map("end_hour")
+  timezone  String @default("America/Sao_Paulo")
+
+  /// intervalo entre mensagens de um mesmo numero
+  minIntervalMinutes Int @default(25) @map("min_interval_minutes")
+  maxIntervalMinutes Int @default(90) @map("max_interval_minutes")
+
+  /// rampa: o teto diario sobe de `capStart` ate `capEnd` ao longo de N dias.
+  /// Chip novo que dispara 30 mensagens no primeiro dia chama atencao.
+  rampUpDays Int @default(21) @map("ramp_up_days")
+  capStart   Int @default(4) @map("cap_start")
+  capEnd     Int @default(30) @map("cap_end")
+
+  model     String   @default("gpt-4o-mini")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("warmup_config")
+}
+
+/// Uma conversa 1:1 entre dois numeros do painel.
+model WarmupThread {
+  id            String    @id @default(uuid())
+  aInstanceId   String    @map("a_instance_id")
+  bInstanceId   String    @map("b_instance_id")
+  lastMessageAt DateTime? @map("last_message_at")
+  messageCount  Int       @default(0) @map("message_count")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  messages WarmupMessage[]
+
+  /// par ordenado (a < b) para nunca duplicar a mesma dupla
+  @@unique([aInstanceId, bInstanceId])
+  @@map("warmup_threads")
+}
+
+model WarmupMessage {
+  id             BigInt       @id @default(autoincrement())
+  threadId       String       @map("thread_id")
+  thread         WarmupThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  fromInstanceId String       @map("from_instance_id")
+  content        String
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([threadId, createdAt])
+  @@index([fromInstanceId, createdAt])
+  @@map("warmup_messages")
 }
 
 /// Eventos de webhook que nao casaram com nenhuma instancia.

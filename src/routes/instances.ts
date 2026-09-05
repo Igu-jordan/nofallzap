@@ -11,6 +11,13 @@ const createSchema = z.object({ name: z.string().min(2).max(60) });
 const patchSchema = z.object({
   name: z.string().min(2).max(60).optional(),
   aiEnabled: z.boolean().optional(),
+  // ritmo humano — vive na instancia porque quem descansa e a pessoa
+  rhythmEnabled: z.boolean().optional(),
+  activeMinutes: z.number().int().min(1).max(1440).optional(),
+  pauseMinutes: z.number().int().min(0).max(1440).optional(),
+  workStartHour: z.number().int().min(0).max(23).optional(),
+  workEndHour: z.number().int().min(0).max(23).optional(),
+  timezone: z.string().optional(),
 });
 
 export async function instanceRoutes(app: FastifyInstance) {

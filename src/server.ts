@@ -13,6 +13,7 @@ import { webhookRoutes } from './routes/webhook.js';
 import { instanceRoutes } from './routes/instances.js';
 import { groupRoutes } from './routes/groups.js';
 import { settingsRoutes } from './routes/settings.js';
+import { warmupRoutes } from './routes/warmup.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // dist/server.js -> raiz do projeto -> web/dist
@@ -31,6 +32,7 @@ await app.register(webhookRoutes);
 await app.register(instanceRoutes);
 await app.register(groupRoutes);
 await app.register(settingsRoutes);
+await app.register(warmupRoutes);
 
 // --------------------------------------------------- painel (SPA compilada)
 if (existsSync(WEB_DIST)) {

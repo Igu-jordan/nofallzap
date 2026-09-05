@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { redis } from '../lib/redis.js';
 import { isAiGloballyEnabled } from '../routes/settings.js';
+import { checkRhythm } from './rhythm.js';
 import type { Agent, Group, Instance, Message } from '@prisma/client';
 
 /**
@@ -163,6 +164,12 @@ export async function shouldReply(ctx: GateContext): Promise<GateResult> {
 
   // 3. IA da instancia
   if (!instance.aiEnabled) return deny('IA desligada nesta instancia');
+
+  // 3b. RITMO HUMANO: horario de funcionamento + ciclo ativo/pausa.
+  // Barra cedo de proposito — e uma checagem barata e evita gerar uma
+  // resposta que nao vai sair.
+  const rhythm = await checkRhythm(instance);
+  if (!rhythm.active) return deny(rhythm.reason);
 
   // 4. grupo habilitado
   if (!group.aiEnabled) return deny('IA desligada neste grupo');

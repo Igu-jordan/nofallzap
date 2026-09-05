@@ -19,6 +19,7 @@ import { processGroupDecision } from './services/replyEngine.js';
 import { processSend } from './services/sender.js';
 import { acquireLock, releaseLock } from './lib/redis.js';
 import { invalidateManagedNumbers } from './services/decisionGate.js';
+import { runWarmupTick } from './services/warmup.js';
 
 /**
  * WORKER — FILA 1 (ingest).
@@ -414,6 +415,19 @@ const sendWorkerTimer = setInterval(() => {
   );
 }, 30_000);
 
+// --------------------------------------------------- MATURACAO (aquecimento)
+//
+// Caminho proprio, fora do pipeline dos grupos: o filtro anti-loop descarta
+// mensagens de numeros gerenciados, que e justamente o que o aquecimento faz.
+// O agendador so monta a mensagem; quem envia e a fila da instancia, com o
+// mesmo rate limit das respostas.
+
+const warmupTimer = setInterval(() => {
+  void runWarmupTick().catch((err) =>
+    log.warn('warmup.tickFailed', { error: (err as Error).message }),
+  );
+}, 60_000);
+
 // ------------------------------------------------- reconciliacao periodica
 const reconcileTimer = setInterval(() => {
   service.reconcileAll().catch((err) =>
@@ -427,6 +441,7 @@ async function shutdown(signal: string) {
   log.info('worker.shutdown', { signal });
   clearInterval(reconcileTimer);
   clearInterval(sendWorkerTimer);
+  clearInterval(warmupTimer);
   try {
     await worker.close();
     await decideWorker.close();

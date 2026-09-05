@@ -25,6 +25,14 @@ export type InstanceStatus =
   | 'error';
 
 export interface InstanceDetail extends InstanceSummary {
+  rhythmEnabled: boolean;
+  activeMinutes: number;
+  pauseMinutes: number;
+  rhythmState: string;
+  rhythmUntil: string | null;
+  workStartHour: number;
+  workEndHour: number;
+  timezone: string;
   today: {
     received: number;
     processed: number;
@@ -64,6 +72,41 @@ export interface AgentInput {
   temperature?: number;
   maxTokens?: number;
   isActive?: boolean;
+}
+
+export interface WarmupConfig {
+  enabled: boolean;
+  startHour: number;
+  endHour: number;
+  timezone: string;
+  minIntervalMinutes: number;
+  maxIntervalMinutes: number;
+  rampUpDays: number;
+  capStart: number;
+  capEnd: number;
+  model: string;
+}
+
+export interface WarmupInstance {
+  id: string;
+  name: string;
+  phoneNumber: string | null;
+  status: InstanceStatus;
+  warmupEnabled: boolean;
+  warmupStartedAt: string | null;
+  nextWarmupAt: string | null;
+  sentToday: number;
+  dailyCap: number;
+  daysWarming: number;
+}
+
+export interface WarmupThread {
+  id: string;
+  a: string;
+  b: string;
+  messageCount: number;
+  lastMessageAt: string | null;
+  messages: Array<{ from: string; content: string; createdAt: string }>;
 }
 
 export interface EventRow {
@@ -108,7 +151,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
-  patchInstance: (id: string, data: { name?: string; aiEnabled?: boolean }) =>
+  patchInstance: (
+    id: string,
+    data: {
+      name?: string;
+      aiEnabled?: boolean;
+      rhythmEnabled?: boolean;
+      activeMinutes?: number;
+      pauseMinutes?: number;
+      workStartHour?: number;
+      workEndHour?: number;
+    },
+  ) =>
     call<InstanceSummary>(`/api/instances/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   getQr: (id: string) =>
     call<{ connected: boolean; base64: string | null; status?: string }>(
@@ -141,6 +195,18 @@ export const api = {
   listEvents: (id: string, level?: string) =>
     call<EventRow[]>(`/api/instances/${id}/events${level ? `?level=${level}` : ''}`),
   listAgents: () => call<AgentRow[]>('/api/agents'),
+  getWarmup: () =>
+    call<{ config: WarmupConfig; totalMessages: number; instances: WarmupInstance[] }>(
+      '/api/warmup',
+    ),
+  patchWarmup: (data: Partial<WarmupConfig>) =>
+    call<WarmupConfig>('/api/warmup', { method: 'PATCH', body: JSON.stringify(data) }),
+  setWarmupInstance: (id: string, warmupEnabled: boolean) =>
+    call<unknown>(`/api/warmup/instances/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ warmupEnabled }),
+    }),
+  warmupThreads: () => call<WarmupThread[]>('/api/warmup/threads'),
   createAgent: (data: AgentInput) =>
     call<AgentRow>('/api/agents', { method: 'POST', body: JSON.stringify(data) }),
   patchAgent: (id: string, data: Partial<AgentInput>) =>

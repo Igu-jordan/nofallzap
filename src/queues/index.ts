@@ -35,7 +35,10 @@ export interface DecideJob {
 
 export interface SendJob {
   instanceId: string;
-  groupId: string;
+  /// 'group' = resposta da IA num grupo | 'warmup' = mensagem de aquecimento
+  kind?: 'group' | 'warmup';
+  /// presente apenas quando kind = 'group'
+  groupId?: string;
   remoteJid: string;
   text: string;
 }

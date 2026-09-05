@@ -327,7 +327,15 @@ function Settings({ data, onChanged }: { data: Detail; onChanged: () => void }) 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function save(patch: { name?: string; aiEnabled?: boolean }) {
+  async function save(patch: {
+    name?: string;
+    aiEnabled?: boolean;
+    rhythmEnabled?: boolean;
+    activeMinutes?: number;
+    pauseMinutes?: number;
+    workStartHour?: number;
+    workEndHour?: number;
+  }) {
     setSaving(true);
     try {
       await api.patchInstance(data.id, patch);
@@ -369,6 +377,102 @@ function Settings({ data, onChanged }: { data: Detail; onChanged: () => void }) 
         >
           {saving ? 'Salvando…' : 'Salvar'}
         </button>
+      </div>
+
+      {/* --------------------------------------------------- ritmo humano */}
+      <div className="card" style={{ maxWidth: 520, marginTop: 16 }}>
+        <div style={{ fontWeight: 600 }}>Ritmo humano</div>
+        <div style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 14px' }}>
+          Uma pessoa não fica grudada no WhatsApp. O ritmo vive no número, não no agente:
+          quando ela larga o celular, some de todos os grupos ao mesmo tempo.
+        </div>
+
+        <div
+          className="field"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <div>
+            <div style={{ fontWeight: 600 }}>Ativar ritmo</div>
+            <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+              {data.rhythmEnabled
+                ? `Agora: ${data.rhythmState === 'active' ? 'ativo' : 'em pausa'}${
+                    data.rhythmUntil ? ` até ${formatDate(data.rhythmUntil)}` : ''
+                  }`
+                : 'Responde a qualquer hora, sem pausa'}
+            </div>
+          </div>
+          <Toggle
+            checked={data.rhythmEnabled}
+            onChange={(v) => void save({ rhythmEnabled: v })}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Fica ativo por (min)</label>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              max={1440}
+              defaultValue={data.activeMinutes}
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                if (v >= 1 && v <= 1440 && v !== data.activeMinutes) void save({ activeMinutes: v });
+              }}
+            />
+          </div>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Descansa por (min)</label>
+            <input
+              className="input"
+              type="number"
+              min={0}
+              max={1440}
+              defaultValue={data.pauseMinutes}
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                if (v >= 0 && v <= 1440 && v !== data.pauseMinutes) void save({ pauseMinutes: v });
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Começa às (hora)</label>
+            <input
+              className="input"
+              type="number"
+              min={0}
+              max={23}
+              defaultValue={data.workStartHour}
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                if (v >= 0 && v <= 23 && v !== data.workStartHour) void save({ workStartHour: v });
+              }}
+            />
+          </div>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Para às (hora)</label>
+            <input
+              className="input"
+              type="number"
+              min={0}
+              max={23}
+              defaultValue={data.workEndHour}
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                if (v >= 0 && v <= 23 && v !== data.workEndHour) void save({ workEndHour: v });
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+          Fuso: {data.timezone}. As durações variam ±30% a cada ciclo, para o ritmo não virar um
+          metrônomo.
+        </div>
       </div>
     </>
   );
