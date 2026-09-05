@@ -265,8 +265,15 @@ model WarmupConfig {
   timezone  String @default("America/Sao_Paulo")
 
   /// intervalo entre mensagens de um mesmo numero
+  /// intervalo para um numero INICIAR uma conversa nova
   minIntervalMinutes Int @default(25) @map("min_interval_minutes")
   maxIntervalMinutes Int @default(90) @map("max_interval_minutes")
+
+  /// tempo que a pessoa leva para RESPONDER uma mensagem recebida.
+  /// Bem menor que o de iniciar conversa: ninguem demora 1h para
+  /// responder "ja almocou?" e ainda soar natural.
+  replyMinMinutes Int @default(2) @map("reply_min_minutes")
+  replyMaxMinutes Int @default(25) @map("reply_max_minutes")
 
   /// rampa: o teto diario sobe de `capStart` ate `capEnd` ao longo de N dias.
   /// Chip novo que dispara 30 mensagens no primeiro dia chama atencao.
@@ -289,10 +296,20 @@ model WarmupThread {
   messageCount  Int       @default(0) @map("message_count")
   createdAt     DateTime  @default(now()) @map("created_at")
 
+  // TURNOS. Sem isto os dois numeros falam ao mesmo tempo e a resposta
+  // chega antes da pergunta — foi o que aconteceu na primeira versao.
+  /// quem falou por ultimo (nunca fala duas vezes seguidas)
+  lastFromInstanceId String? @map("last_from_instance_id")
+  /// de quem e a vez de falar
+  nextTurnInstanceId String? @map("next_turn_instance_id")
+  /// quando essa vez chega
+  nextTurnAt         DateTime? @map("next_turn_at")
+
   messages WarmupMessage[]
 
   /// par ordenado (a < b) para nunca duplicar a mesma dupla
   @@unique([aInstanceId, bInstanceId])
+  @@index([nextTurnAt])
   @@map("warmup_threads")
 }
 

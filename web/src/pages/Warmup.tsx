@@ -142,7 +142,11 @@ export function Warmup({ onBack }: { onBack: () => void }) {
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ fontWeight: 600, marginBottom: 4 }}>Ritmo do aquecimento</div>
         <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>
-          O teto diário sobe em rampa. Um chip novo que dispara 30 mensagens no primeiro dia
+          A conversa é <strong>por turnos</strong>: quem falou não fala de novo até o outro
+          responder. <em>Intervalo</em> é o tempo para alguém <strong>puxar assunto novo</strong>;
+          <em>resposta</em> é o tempo para <strong>responder</strong> uma mensagem recebida — bem
+          menor, porque ninguém demora uma hora para responder "já almoçou?" e ainda soa natural.
+          O teto diário sobe em rampa: um chip novo que dispara 30 mensagens no primeiro dia
           chama muito mais atenção do que um que começa com 4 e cresce ao longo de semanas.
         </div>
 
@@ -151,6 +155,8 @@ export function Warmup({ onBack }: { onBack: () => void }) {
           <Num label="Fim (hora)" value={cfg.endHour} min={0} max={23} onSave={(v) => void patch({ endHour: v })} />
           <Num label="Intervalo mín. (min)" value={cfg.minIntervalMinutes} min={1} max={1440} onSave={(v) => void patch({ minIntervalMinutes: v })} />
           <Num label="Intervalo máx. (min)" value={cfg.maxIntervalMinutes} min={2} max={1440} onSave={(v) => void patch({ maxIntervalMinutes: v })} />
+          <Num label="Resposta mín. (min)" value={cfg.replyMinMinutes} min={1} max={720} onSave={(v) => void patch({ replyMinMinutes: v })} />
+          <Num label="Resposta máx. (min)" value={cfg.replyMaxMinutes} min={2} max={720} onSave={(v) => void patch({ replyMaxMinutes: v })} />
           <Num label="Dias de rampa" value={cfg.rampUpDays} min={0} max={180} onSave={(v) => void patch({ rampUpDays: v })} />
           <Num label="Teto inicial/dia" value={cfg.capStart} min={0} max={500} onSave={(v) => void patch({ capStart: v })} />
           <Num label="Teto final/dia" value={cfg.capEnd} min={0} max={500} onSave={(v) => void patch({ capEnd: v })} />
@@ -233,15 +239,15 @@ export function Warmup({ onBack }: { onBack: () => void }) {
                         style={{
                           fontWeight: 600,
                           color:
-                            r.nextWarmupAt && new Date(r.nextWarmupAt).getTime() <= Date.now()
+                            r.nextTurnAt && new Date(r.nextTurnAt).getTime() <= Date.now()
                               ? 'var(--accent)'
                               : undefined,
                         }}
                       >
-                        {timeUntil(r.nextWarmupAt)}
+                        {timeUntil(r.nextTurnAt)}
                       </span>
                       <div className="kpi-label">
-                        {r.nextWarmupAt ? formatDate(r.nextWarmupAt).split(' ')[1] : '—'}
+                        {r.nextTurnAt ? formatDate(r.nextTurnAt).split(' ')[1] : 'aguardando vez'}
                         {r.intervalMinutes ? ` · intervalo sorteado: ${r.intervalMinutes} min` : ''}
                       </div>
                     </>

@@ -11,6 +11,8 @@ const configSchema = z.object({
   timezone: z.string().optional(),
   minIntervalMinutes: z.number().int().min(1).max(1440).optional(),
   maxIntervalMinutes: z.number().int().min(2).max(1440).optional(),
+  replyMinMinutes: z.number().int().min(1).max(720).optional(),
+  replyMaxMinutes: z.number().int().min(2).max(720).optional(),
   rampUpDays: z.number().int().min(0).max(180).optional(),
   capStart: z.number().int().min(0).max(500).optional(),
   capEnd: z.number().int().min(0).max(500).optional(),
@@ -56,6 +58,19 @@ export async function warmupRoutes(app: FastifyInstance) {
       include: { thread: true },
     });
 
+    // O agendamento real vive na THREAD: e la que mora "de quem e a vez".
+    // nextWarmupAt da instancia e so o rate pessoal dela.
+    const turns = await prisma.warmupThread.findMany({
+      where: { nextTurnInstanceId: { not: null }, nextTurnAt: { not: null } },
+      orderBy: { nextTurnAt: 'asc' },
+      select: { nextTurnInstanceId: true, nextTurnAt: true, aInstanceId: true, bInstanceId: true },
+    });
+    const nextTurnByInstance = new Map<string, Date>();
+    for (const t of turns) {
+      const id = t.nextTurnInstanceId as string;
+      if (!nextTurnByInstance.has(id)) nextTurnByInstance.set(id, t.nextTurnAt as Date);
+    }
+
     const nameById = new Map<string, string>(instances.map((i) => [i.id, i.name]));
     const lastByInstance = new Map<
       string,
@@ -80,10 +95,9 @@ export async function warmupRoutes(app: FastifyInstance) {
         const last = lastByInstance.get(i.id);
         // o intervalo sorteado e a distancia entre o ultimo envio e o
         // proximo agendamento
+        const turnAt = nextTurnByInstance.get(i.id) ?? null;
         const intervalMinutes =
-          last && i.nextWarmupAt
-            ? Math.round((i.nextWarmupAt.getTime() - last.at.getTime()) / 60_000)
-            : null;
+          last && turnAt ? Math.round((turnAt.getTime() - last.at.getTime()) / 60_000) : null;
 
         return {
           ...i,
@@ -92,6 +106,7 @@ export async function warmupRoutes(app: FastifyInstance) {
           daysWarming: i.warmupStartedAt
             ? Math.floor((Date.now() - i.warmupStartedAt.getTime()) / 86_400_000)
             : 0,
+          nextTurnAt: nextTurnByInstance.get(i.id) ?? null,
           lastSentAt: last?.at ?? null,
           lastText: last?.text ?? null,
           lastPartner: last?.partner ?? null,
@@ -112,6 +127,11 @@ export async function warmupRoutes(app: FastifyInstance) {
       return reply
         .code(400)
         .send({ error: 'o intervalo minimo precisa ser menor que o maximo' });
+    }
+    if (next.replyMinMinutes >= next.replyMaxMinutes) {
+      return reply
+        .code(400)
+        .send({ error: 'o tempo minimo de resposta precisa ser menor que o maximo' });
     }
     if (next.capStart > next.capEnd) {
       return reply

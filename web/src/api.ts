@@ -81,6 +81,8 @@ export interface WarmupConfig {
   timezone: string;
   minIntervalMinutes: number;
   maxIntervalMinutes: number;
+  replyMinMinutes: number;
+  replyMaxMinutes: number;
   rampUpDays: number;
   capStart: number;
   capEnd: number;
@@ -95,6 +97,7 @@ export interface WarmupInstance {
   warmupEnabled: boolean;
   warmupStartedAt: string | null;
   nextWarmupAt: string | null;
+  nextTurnAt: string | null;
   sentToday: number;
   dailyCap: number;
   daysWarming: number;

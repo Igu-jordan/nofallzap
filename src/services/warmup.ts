@@ -4,7 +4,7 @@ import { logEvent } from './eventLog.js';
 import { withinWorkHours } from './rhythm.js';
 import { complete } from '../ai/provider.js';
 import { getSendQueue } from '../queues/index.js';
-import type { Instance, WarmupConfig } from '@prisma/client';
+import type { Instance, WarmupConfig, WarmupThread } from '@prisma/client';
 
 /**
  * MATURACAO DE CHIP (aquecimento).
@@ -20,9 +20,20 @@ import type { Instance, WarmupConfig } from '@prisma/client';
  * ARQUITETURA — por que este motor NAO passa pelo pipeline dos grupos:
  * o filtro anti-loop do decisionGate descarta toda mensagem vinda de um
  * numero gerenciado pelo painel, que e exatamente o que a maturacao faz.
- * Se passasse por la, cada mensagem seria bloqueada. Por isso o caminho e
- * proprio: gera aqui e entrega direto na fila de envio da instancia,
- * reaproveitando o rate limit por numero.
+ * Entrega direto na fila de envio da instancia, reaproveitando o rate
+ * limit por numero.
+ *
+ * TURNOS — a licao da primeira versao:
+ * antes, o tick percorria as INSTANCIAS e disparava todas que estavam na
+ * hora. Como ambas comecavam com nextWarmupAt = agora, as duas falavam no
+ * mesmo minuto: uma perguntava "ja almocou?" e a outra respondia "ainda
+ * nao" — mas cada uma numa fila de envio diferente, com jitter proprio, e
+ * a RESPOSTA chegava antes da PERGUNTA. Conversa nenhuma funciona assim.
+ *
+ * Agora o tick percorre as THREADS. Cada thread tem dono da vez
+ * (nextTurnInstanceId) e hora da vez (nextTurnAt). So quem tem a vez fala,
+ * e ao falar passa a vez para o outro. Ninguem fala duas vezes seguidas, e
+ * nunca ha duas mensagens da mesma dupla em voo ao mesmo tempo.
  */
 
 const DEFAULT_ID = 'default';
@@ -58,54 +69,41 @@ async function sentToday(instanceId: string): Promise<number> {
   });
 }
 
-function nextInterval(cfg: WarmupConfig): number {
-  const min = Math.max(1, cfg.minIntervalMinutes);
-  const max = Math.max(min + 1, cfg.maxIntervalMinutes);
+const randomMs = (minMin: number, maxMin: number) => {
+  const min = Math.max(1, minMin);
+  const max = Math.max(min + 1, maxMin);
   return (min + Math.random() * (max - min)) * 60_000;
-}
+};
 
-/** Escolhe o parceiro menos usado recentemente, para nao viciar sempre na mesma dupla. */
-async function pickPartner(instance: Instance, pool: Instance[]): Promise<Instance | null> {
-  const candidates = pool.filter((i) => i.id !== instance.id);
-  if (candidates.length === 0) return null;
+/** Tempo para RESPONDER: curto, como uma pessoa que viu a mensagem. */
+const replyDelay = (cfg: WarmupConfig) => randomMs(cfg.replyMinMinutes, cfg.replyMaxMinutes);
 
-  const scored = await Promise.all(
-    candidates.map(async (c) => {
-      const [a, b] = orderPair(instance.id, c.id);
-      const thread = await prisma.warmupThread.findUnique({
-        where: { aInstanceId_bInstanceId: { aInstanceId: a, bInstanceId: b } },
-        select: { lastMessageAt: true },
-      });
-      return { instance: c, last: thread?.lastMessageAt?.getTime() ?? 0 };
-    }),
-  );
-
-  scored.sort((x, y) => x.last - y.last);
-  // sorteia entre os 3 mais "frios", para nao virar rodizio previsivel
-  const top = scored.slice(0, Math.min(3, scored.length));
-  return top[Math.floor(Math.random() * top.length)].instance;
-}
+/** Tempo para INICIAR uma conversa nova: bem mais longo. */
+const startDelay = (cfg: WarmupConfig) =>
+  randomMs(cfg.minIntervalMinutes, cfg.maxIntervalMinutes);
 
 const TOPICS = [
-  'combinar um horario para conversar',
-  'comentar sobre o movimento da semana',
   'perguntar como foi o fim de semana',
+  'comentar sobre o movimento da semana',
   'falar sobre o transito ou o tempo',
   'perguntar se ja almocou',
-  'comentar que vai resolver uma coisa e volta depois',
+  'combinar um horario para conversar',
   'perguntar sobre um pedido ou entrega',
   'mandar um bom dia e puxar assunto',
-  'agradecer por algo combinado antes',
   'avisar que vai sair e volta mais tarde',
 ];
 
-/** Gera a proxima mensagem da conversa, continuando o assunto se houver. */
+/**
+ * Gera a mensagem. Se ha historico, e uma RESPOSTA ao que veio antes.
+ * Se nao ha, e o inicio de uma conversa.
+ */
 async function generateMessage(
   cfg: WarmupConfig,
   fromName: string,
   toName: string,
   history: Array<{ from: string; text: string }>,
 ): Promise<string> {
+  const isReply = history.length > 0;
   const topic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
 
   const system = `Voce escreve UMA mensagem curta de WhatsApp, como uma pessoa comum escreveria para um colega de trabalho.
@@ -115,20 +113,26 @@ Regras:
 - Portugues informal do Brasil. Pode abreviar, pode errar acento.
 - Sem emoji na maioria das vezes. Sem formatacao, sem aspas, sem assinatura.
 - Escreva SOMENTE o texto da mensagem, nada alem disso.
-- Se ja houver conversa, responda ao que foi dito. Se nao houver, puxe assunto.
 - Nunca fale de negocio fechado, valores, senha ou dado pessoal.`;
 
-  const convo = history.length
-    ? history.map((h) => `${h.from}: ${h.text}`).join('\n')
-    : '(conversa nova, sem mensagens anteriores)';
+  const instruction = isReply
+    ? `Voce e ${fromName}. ${toName} acabou de falar com voce.
+
+Conversa ate agora (a ultima linha e o que voce precisa responder):
+${history.map((h) => `${h.from}: ${h.text}`).join('\n')}
+
+Responda a ULTIMA mensagem de forma natural. Nao mude de assunto do nada.
+Escreva a resposta:`
+    : `Voce e ${fromName} e vai puxar assunto com ${toName}. Nao ha conversa anterior.
+
+Intencao: ${topic}
+
+Escreva a mensagem que inicia a conversa:`;
 
   const res = await complete(
     [
       { role: 'system', content: system },
-      {
-        role: 'user',
-        content: `Voce e ${fromName}, falando com ${toName}.\n\nConversa ate agora:\n${convo}\n\nIntencao desta mensagem: ${topic}\n\nEscreva a mensagem:`,
-      },
+      { role: 'user', content: instruction },
     ],
     { model: cfg.model, temperature: 1.0, maxTokens: 60 },
   );
@@ -136,14 +140,87 @@ Regras:
   return res.text.replace(/^["']|["']$/g, '').trim().slice(0, 300);
 }
 
+/** Envia a mensagem de uma thread e passa a vez para o outro lado. */
+async function playTurn(
+  cfg: WarmupConfig,
+  thread: WarmupThread,
+  sender: Instance,
+  partner: Instance,
+) {
+  const history = await prisma.warmupMessage.findMany({
+    where: { threadId: thread.id },
+    orderBy: { createdAt: 'desc' },
+    take: 6,
+  });
+  history.reverse();
+
+  const nameOf = (i: Instance) => i.profileName || i.name;
+
+  const text = await generateMessage(
+    cfg,
+    nameOf(sender),
+    nameOf(partner),
+    history.map((m) => ({
+      from: m.fromInstanceId === sender.id ? nameOf(sender) : nameOf(partner),
+      text: m.content,
+    })),
+  );
+
+  if (!text) return false;
+
+  const now = new Date();
+
+  await prisma.warmupMessage.create({
+    data: { threadId: thread.id, fromInstanceId: sender.id, content: text },
+  });
+
+  // PASSA A VEZ. O outro responde depois de um tempo de leitura humano —
+  // sempre muito maior que o jitter da fila de envio, entao a ordem de
+  // chegada nunca se inverte.
+  await prisma.warmupThread.update({
+    where: { id: thread.id },
+    data: {
+      lastMessageAt: now,
+      messageCount: { increment: 1 },
+      lastFromInstanceId: sender.id,
+      nextTurnInstanceId: partner.id,
+      nextTurnAt: new Date(now.getTime() + replyDelay(cfg)),
+    },
+  });
+
+  await getSendQueue(sender.id).add('warmup', {
+    instanceId: sender.id,
+    kind: 'warmup',
+    remoteJid: `${partner.phoneNumber}@s.whatsapp.net`,
+    text,
+  });
+
+  // rate pessoal: este numero nao fala de novo (em nenhuma thread) tao cedo
+  await prisma.instance.update({
+    where: { id: sender.id },
+    data: {
+      nextWarmupAt: new Date(now.getTime() + randomMs(2, cfg.replyMaxMinutes)),
+      warmupStartedAt: sender.warmupStartedAt ?? now,
+    },
+  });
+
+  await logEvent({
+    instanceId: sender.id,
+    level: 'info',
+    event: 'warmup_queued',
+    message: `aquecimento -> ${nameOf(partner)}: ${text.slice(0, 60)}`,
+  });
+
+  return true;
+}
+
 /**
- * Um ciclo do agendador. Roda de minuto em minuto no worker.
- * Nao envia nada aqui: monta a mensagem e entrega na fila da instancia.
+ * Um ciclo do agendador, de minuto em minuto no worker.
+ * Percorre THREADS (nao instancias) — e o que garante os turnos.
  */
 export async function runWarmupTick() {
   const cfg = await getWarmupConfig();
   if (!cfg.enabled) return;
-
   if (!withinWorkHours(cfg.startHour, cfg.endHour, cfg.timezone)) return;
 
   const pool = await prisma.instance.findMany({
@@ -160,100 +237,95 @@ export async function runWarmupTick() {
     return;
   }
 
+  const byId = new Map<string, Instance>(pool.map((i) => [i.id, i]));
   const now = new Date();
 
-  for (const instance of pool) {
-    if (instance.nextWarmupAt && now < instance.nextWarmupAt) continue;
+  // quem ja pode falar: dentro do teto do dia e do proprio rate
+  const eligible = new Set<string>();
+  for (const i of pool) {
+    if (i.nextWarmupAt && now < i.nextWarmupAt) continue;
+    if ((await sentToday(i.id)) >= dailyCap(cfg, i.warmupStartedAt)) continue;
+    eligible.add(i.id);
+  }
+  if (eligible.size === 0) return;
 
-    const cap = dailyCap(cfg, instance.warmupStartedAt);
-    const already = await sentToday(instance.id);
-    if (already >= cap) {
-      // ja bateu o teto do dia: so volta amanha
-      const tomorrow = new Date(now);
-      tomorrow.setUTCHours(24, 0, 0, 0);
-      await prisma.instance.update({
-        where: { id: instance.id },
-        data: { nextWarmupAt: tomorrow },
-      });
-      continue;
-    }
+  // ------------------------------------------------- 1. turnos vencidos
+  const due = await prisma.warmupThread.findMany({
+    where: { nextTurnAt: { lte: now }, nextTurnInstanceId: { in: [...eligible] } },
+    orderBy: { nextTurnAt: 'asc' },
+    take: 20,
+  });
+
+  const spoke = new Set<string>();
+
+  for (const thread of due) {
+    const senderId = thread.nextTurnInstanceId!;
+    if (spoke.has(senderId) || !eligible.has(senderId)) continue;
+
+    const partnerId =
+      thread.aInstanceId === senderId ? thread.bInstanceId : thread.aInstanceId;
+    const sender = byId.get(senderId);
+    const partner = byId.get(partnerId);
+    if (!sender || !partner) continue;
 
     try {
-      await sendWarmupMessage(cfg, instance, pool);
+      if (await playTurn(cfg, thread, sender, partner)) {
+        spoke.add(senderId);
+        eligible.delete(senderId);
+      }
     } catch (err) {
-      log.warn('warmup.tickFailed', {
-        instanceId: instance.id,
-        error: (err as Error).message,
-      });
-      await prisma.instance.update({
-        where: { id: instance.id },
-        data: { nextWarmupAt: new Date(now.getTime() + 15 * 60_000) },
+      log.warn('warmup.turnFailed', { threadId: thread.id, error: (err as Error).message });
+      // adia a vez para nao travar a thread num erro passageiro
+      await prisma.warmupThread.update({
+        where: { id: thread.id },
+        data: { nextTurnAt: new Date(now.getTime() + 10 * 60_000) },
       });
     }
   }
+
+  // -------------------------------------- 2. iniciar UMA conversa nova
+  // So se sobrou alguem sem falar. Uma por tique: conversas nascendo em
+  // rajada e tao artificial quanto respostas instantaneas.
+  if (eligible.size >= 2 && spoke.size === 0) {
+    await maybeStartConversation(cfg, [...eligible].map((id) => byId.get(id)!), now);
+  }
 }
 
-async function sendWarmupMessage(cfg: WarmupConfig, instance: Instance, pool: Instance[]) {
-  const partner = await pickPartner(instance, pool);
-  if (!partner || !partner.phoneNumber) return;
+/** Abre uma conversa entre a dupla que esta ha mais tempo sem se falar. */
+async function maybeStartConversation(cfg: WarmupConfig, candidates: Instance[], now: Date) {
+  const starter = candidates[Math.floor(Math.random() * candidates.length)];
+  const others = candidates.filter((i) => i.id !== starter.id);
+  if (others.length === 0) return;
 
-  const [a, b] = orderPair(instance.id, partner.id);
-  const thread = await prisma.warmupThread.upsert({
-    where: { aInstanceId_bInstanceId: { aInstanceId: a, bInstanceId: b } },
-    create: { aInstanceId: a, bInstanceId: b },
-    update: {},
-  });
-
-  const history = await prisma.warmupMessage.findMany({
-    where: { threadId: thread.id },
-    orderBy: { createdAt: 'desc' },
-    take: 6,
-  });
-  history.reverse();
-
-  const nameOf = (i: Instance) => i.profileName || i.name;
-
-  const text = await generateMessage(
-    cfg,
-    nameOf(instance),
-    nameOf(partner),
-    history.map((m) => ({
-      from: m.fromInstanceId === instance.id ? nameOf(instance) : nameOf(partner),
-      text: m.content,
-    })),
+  const scored = await Promise.all(
+    others.map(async (c) => {
+      const [a, b] = orderPair(starter.id, c.id);
+      const t = await prisma.warmupThread.findUnique({
+        where: { aInstanceId_bInstanceId: { aInstanceId: a, bInstanceId: b } },
+      });
+      return { partner: c, thread: t, last: t?.lastMessageAt?.getTime() ?? 0 };
+    }),
   );
 
-  if (!text) return;
+  scored.sort((x, y) => x.last - y.last);
+  const pick = scored[0];
 
-  await prisma.warmupMessage.create({
-    data: { threadId: thread.id, fromInstanceId: instance.id, content: text },
-  });
-  await prisma.warmupThread.update({
-    where: { id: thread.id },
-    data: { lastMessageAt: new Date(), messageCount: { increment: 1 } },
-  });
+  // se a dupla tem conversa aberta esperando resposta, nao comeca outra
+  if (pick.thread?.nextTurnAt && pick.thread.nextTurnAt > now) return;
 
-  // entrega na fila da PROPRIA instancia: um rate limit por numero cobre
-  // tanto resposta de grupo quanto aquecimento
-  await getSendQueue(instance.id).add('warmup', {
-    instanceId: instance.id,
-    kind: 'warmup',
-    remoteJid: `${partner.phoneNumber}@s.whatsapp.net`,
-    text,
-  });
+  const [a, b] = orderPair(starter.id, pick.partner.id);
+  const thread =
+    pick.thread ??
+    (await prisma.warmupThread.create({ data: { aInstanceId: a, bInstanceId: b } }));
 
-  await prisma.instance.update({
-    where: { id: instance.id },
-    data: {
-      nextWarmupAt: new Date(Date.now() + nextInterval(cfg)),
-      warmupStartedAt: instance.warmupStartedAt ?? new Date(),
-    },
-  });
-
-  await logEvent({
-    instanceId: instance.id,
-    level: 'info',
-    event: 'warmup_queued',
-    message: `aquecimento -> ${nameOf(partner)}: ${text.slice(0, 60)}`,
-  });
+  // conversa antiga que esfriou: recomeca do zero de assunto
+  try {
+    await playTurn(cfg, thread, starter, pick.partner);
+  } catch (err) {
+    log.warn('warmup.startFailed', { error: (err as Error).message });
+    await prisma.instance.update({
+      where: { id: starter.id },
+      data: { nextWarmupAt: new Date(now.getTime() + startDelay(cfg)) },
+    });
+  }
 }
