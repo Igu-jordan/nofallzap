@@ -14,6 +14,7 @@ import { instanceRoutes } from './routes/instances.js';
 import { groupRoutes } from './routes/groups.js';
 import { settingsRoutes } from './routes/settings.js';
 import { warmupRoutes } from './routes/warmup.js';
+import * as evo from './evolution/client.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // dist/server.js -> raiz do projeto -> web/dist
@@ -52,11 +53,34 @@ if (existsSync(WEB_DIST)) {
   });
 }
 
+/**
+ * O webhook e registrado na Evolution quando a instancia e criada, com a
+ * lista de eventos que o codigo escutava NAQUELE dia. Sem isto, adicionar um
+ * evento novo (foi o caso do MESSAGES_UPDATE) so valeria para instancias
+ * criadas depois — as antigas continuariam mudas, e o sintoma seria um
+ * recurso que "nao funciona" sem nenhum erro em lugar nenhum.
+ */
+async function resyncWebhooks() {
+  const instances = await prisma.instance.findMany({
+    where: { deletedAt: null },
+    select: { evoName: true },
+  });
+  for (const i of instances) {
+    try {
+      await evo.setWebhook(i.evoName);
+    } catch (err) {
+      log.warn('webhook.resyncFailed', { evoName: i.evoName, error: (err as Error).message });
+    }
+  }
+  if (instances.length) log.info('webhook.resynced', { count: instances.length });
+}
+
 // ------------------------------------------------------------------- start
 try {
   await app.listen({ port: env.PORT, host: env.HOST });
   attachRealtime(app.server);
   log.info('server.started', { port: env.PORT, webhook: env.WEBHOOK_PUBLIC_URL });
+  void resyncWebhooks();
 } catch (err) {
   log.error('server.startFailed', { error: (err as Error).message });
   process.exit(1);
