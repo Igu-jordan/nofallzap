@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma.js';
 import { log } from '../lib/logger.js';
 import { logEvent } from './eventLog.js';
 import { withinWorkHours } from './rhythm.js';
-import { complete } from '../ai/provider.js';
+import { complete, type ChatMessage } from '../ai/provider.js';
 import { getSendQueue } from '../queues/index.js';
 import type { Instance, WarmupConfig, WarmupThread } from '@prisma/client';
 
@@ -93,51 +93,91 @@ const TOPICS = [
   'avisar que vai sair e volta mais tarde',
 ];
 
+const firstName = (name: string) => name.trim().split(/\s+/)[0];
+
+/** A mensagem chama a pessoa pelo NOME DE QUEM ESTA ESCREVENDO? */
+function addressesSelf(text: string, fromName: string): boolean {
+  const me = firstName(fromName);
+  if (me.length < 3) return false;
+  // vocativo: ", Sueli" / "Oi Sueli" / "Sueli!" — nome cercado por pontuacao
+  return new RegExp(`(^|[\\s,;:!?.])${me}([\\s,;:!?.]|$)`, 'i').test(text);
+}
+
 /**
  * Gera a mensagem. Se ha historico, e uma RESPOSTA ao que veio antes.
  * Se nao ha, e o inicio de uma conversa.
+ *
+ * O HISTORICO VAI COMO PAPEIS DE CHAT, nao como texto com "Nome:" na frente.
+ * A primeira versao mandava tudo numa unica mensagem de usuario, com as duas
+ * pessoas rotuladas por nome — e o modelo se perdia sobre qual lado ele era.
+ * O sintoma foi visivel no aparelho: respondendo a "Beleza, Sueli!", a Sueli
+ * escreveu "Ate mais, Sueli!" — chamou a si mesma, e a conversa passou a
+ * parecer uma pessoa falando sozinha.
  */
 async function generateMessage(
   cfg: WarmupConfig,
   fromName: string,
   toName: string,
-  history: Array<{ from: string; text: string }>,
+  history: Array<{ mine: boolean; text: string }>,
 ): Promise<string> {
   const isReply = history.length > 0;
   const topic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
 
-  const system = `Voce escreve UMA mensagem curta de WhatsApp, como uma pessoa comum escreveria para um colega de trabalho.
+  const system = `Voce e ${fromName}, escrevendo no WhatsApp para ${toName}.
 
 Regras:
 - No maximo 12 palavras. Mensagem de WhatsApp e curta.
 - Portugues informal do Brasil. Pode abreviar, pode errar acento.
 - Sem emoji na maioria das vezes. Sem formatacao, sem aspas, sem assinatura.
 - Escreva SOMENTE o texto da mensagem, nada alem disso.
-- Nunca fale de negocio fechado, valores, senha ou dado pessoal.`;
+- VOCE e ${fromName}. A outra pessoa e ${toName}. Se chamar alguem pelo nome, o nome e ${toName}. Nunca escreva ${fromName}: esse e voce.
+- Nunca fale de negocio fechado, valores, senha ou dado pessoal.${
+    isReply ? '' : `\n\nNao ha conversa anterior. Puxe assunto com a intencao: ${topic}`
+  }`;
 
-  const instruction = isReply
-    ? `Voce e ${fromName}. ${toName} acabou de falar com voce.
+  const messages: ChatMessage[] = [{ role: 'system', content: system }];
 
-Conversa ate agora (a ultima linha e o que voce precisa responder):
-${history.map((h) => `${h.from}: ${h.text}`).join('\n')}
+  for (const h of history) {
+    if (!h.text) continue;
+    messages.push({ role: h.mine ? 'assistant' : 'user', content: h.text });
+  }
 
-Responda a ULTIMA mensagem de forma natural. Nao mude de assunto do nada.
-Escreva a resposta:`
-    : `Voce e ${fromName} e vai puxar assunto com ${toName}. Nao ha conversa anterior.
+  if (!isReply) {
+    messages.push({ role: 'user', content: 'Escreva a mensagem que inicia a conversa.' });
+  }
 
-Intencao: ${topic}
+  const clean = (t: string) => t.replace(/^["']|["']$/g, '').trim().slice(0, 300);
 
-Escreva a mensagem que inicia a conversa:`;
+  let text = clean((await complete(messages, { model: cfg.model, temperature: 1.0, maxTokens: 60 })).text);
 
-  const res = await complete(
-    [
-      { role: 'system', content: system },
-      { role: 'user', content: instruction },
-    ],
-    { model: cfg.model, temperature: 1.0, maxTokens: 60 },
-  );
+  // Rede de seguranca: se ainda assim o modelo se chamou pelo proprio nome,
+  // tenta uma vez com o erro apontado. E barato e evita a mensagem esquisita
+  // chegar no aparelho.
+  if (text && addressesSelf(text, fromName)) {
+    log.warn('warmup.selfAddressed', { fromName, text });
+    const retry = await complete(
+      [
+        ...messages,
+        { role: 'assistant', content: text },
+        {
+          role: 'user',
+          content: `Voce chamou "${firstName(fromName)}", que e voce mesmo. Quem esta do outro lado e ${toName}. Reescreva a mensagem.`,
+        },
+      ],
+      { model: cfg.model, temperature: 1.0, maxTokens: 60 },
+    );
+    const fixed = clean(retry.text);
+    if (fixed && !addressesSelf(fixed, fromName)) text = fixed;
+    else if (fixed) {
+      // ultima linha de defesa: troca o vocativo errado pelo nome certo
+      text = fixed.replace(
+        new RegExp(`(^|[\\s,;:!?.])${firstName(fromName)}([\\s,;:!?.]|$)`, 'gi'),
+        `$1${firstName(toName)}$2`,
+      );
+    }
+  }
 
-  return res.text.replace(/^["']|["']$/g, '').trim().slice(0, 300);
+  return text;
 }
 
 /** Envia a mensagem de uma thread e passa a vez para o outro lado. */
@@ -160,10 +200,7 @@ async function playTurn(
     cfg,
     nameOf(sender),
     nameOf(partner),
-    history.map((m) => ({
-      from: m.fromInstanceId === sender.id ? nameOf(sender) : nameOf(partner),
-      text: m.content,
-    })),
+    history.map((m) => ({ mine: m.fromInstanceId === sender.id, text: m.content })),
   );
 
   if (!text) return false;
