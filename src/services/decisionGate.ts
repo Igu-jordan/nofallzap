@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma.js';
 import { redis } from '../lib/redis.js';
 import { isAiGloballyEnabled } from '../routes/settings.js';
 import { checkRhythm } from './rhythm.js';
-import type { Agent, Group, Instance, Message } from '@prisma/client';
+import type { Agent, Contact, Group, Instance, Message } from '@prisma/client';
 
 /**
  * ORDEM DE PRIORIDADE (spec), com um ajuste deliberado:
@@ -216,6 +216,69 @@ export async function shouldReply(ctx: GateContext): Promise<GateResult> {
     return deny('instancia com processamento simultaneo no limite; sera retomado');
   }
   await redis.decr(`active:${instance.id}`);
+
+  return { allow: true, reason: 'ok' };
+}
+
+/**
+ * O mesmo portao, para conversa privada.
+ *
+ * Mesma ordem de prioridade e mesmo botao de emergencia — a pausa global tem
+ * que parar o privado tambem, senao "PAUSAR TODAS AS IAS" seria mentira.
+ *
+ * Duas diferencas, ambas de proposito:
+ *  - nao existe modo de participacao: no 1:1 falaram com voce, ponto.
+ *  - o agente vem do contato, e nao do grupo.
+ */
+export async function shouldReplyDm(ctx: {
+  instance: Instance;
+  contact: Contact & { agent: Agent | null };
+  incoming: Message[];
+}): Promise<GateResult> {
+  const { instance, contact } = ctx;
+
+  if (!(await isAiGloballyEnabled())) return deny('PAUSA GLOBAL ativa');
+
+  if (instance.deletedAt) return deny('instancia excluida');
+  if (instance.status !== 'connected') return deny(`instancia nao conectada (${instance.status})`);
+  if (!instance.aiEnabled) return deny('IA desligada nesta instancia');
+
+  const rhythm = await checkRhythm(instance);
+  if (!rhythm.active) return deny(rhythm.reason);
+
+  if (!contact.aiEnabled) return deny('IA desligada nesta conversa');
+  if (!contact.agentId || !contact.agent) return deny('nenhum agente associado a este contato');
+  if (!contact.agent.isActive) return deny(`agente "${contact.agent.name}" esta inativo`);
+
+  const managed = await managedNumbers();
+  const kept = ctx.incoming.filter((m) => {
+    if (m.isFromAi) return false;
+    if (m.direction !== 'inbound') return false;
+    if (!m.content || !m.content.trim()) return false;
+    // anti-loop tambem aqui: numero do proprio painel nunca vira conversa
+    const sender = jidToNumber(m.participant ?? m.remoteJid);
+    if (sender && managed.has(sender)) return false;
+    return true;
+  });
+  if (kept.length === 0) return deny('nenhuma mensagem elegivel (sem texto ou do proprio painel)');
+
+  if (contact.cooldownSeconds > 0 && contact.lastReplyAt) {
+    const elapsed = (Date.now() - contact.lastReplyAt.getTime()) / 1000;
+    if (elapsed < contact.cooldownSeconds) {
+      return deny(`cooldown: faltam ${Math.ceil(contact.cooldownSeconds - elapsed)}s`);
+    }
+  }
+
+  if (contact.dailyMessageCap > 0) {
+    const since = new Date();
+    since.setUTCHours(0, 0, 0, 0);
+    const sent = await prisma.message.count({
+      where: { contactId: contact.id, isFromAi: true, createdAt: { gte: since } },
+    });
+    if (sent >= contact.dailyMessageCap) {
+      return deny(`limite diario desta conversa atingido (${sent}/${contact.dailyMessageCap})`);
+    }
+  }
 
   return { allow: true, reason: 'ok' };
 }

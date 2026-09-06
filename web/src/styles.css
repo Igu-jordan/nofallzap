@@ -221,3 +221,24 @@ tr:last-child td { border-bottom: none; }
 .log-line.warn .lvl { color: var(--warn); }
 .log-line.error .lvl { color: var(--danger); }
 .log-line .ts { flex: none; color: var(--muted); font-size: 12px; width: 120px; }
+
+/* ------------------------------------------------ conversas privadas */
+.linklike {
+  background: none; border: none; padding: 0; color: var(--text);
+  font-weight: 600; text-align: left; text-decoration: underline;
+  text-decoration-color: var(--border);
+}
+.linklike:hover { text-decoration-color: var(--accent); }
+
+.transcript {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 55vh; overflow-y: auto; padding-right: 4px;
+}
+.bubble {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 12px; padding: 8px 11px; font-size: 14px;
+  max-width: 85%; align-self: flex-start;
+}
+/* o que a IA respondeu fica do lado direito, como no proprio WhatsApp */
+.bubble.mine { align-self: flex-end; background: #1c2b22; border-color: #2b4436; }
+.bubble-time { color: var(--muted); font-size: 11px; margin-top: 4px; }

@@ -28,17 +28,21 @@ export interface IngestJob {
   receivedAt: string;
 }
 
+/// Um job de decisao e de um GRUPO ou de um CONTATO, nunca dos dois.
 export interface DecideJob {
   instanceId: string;
-  groupId: string;
+  groupId?: string;
+  contactId?: string;
 }
 
 export interface SendJob {
   instanceId: string;
-  /// 'group' = resposta da IA num grupo | 'warmup' = mensagem de aquecimento
-  kind?: 'group' | 'warmup';
+  /// 'group' = resposta num grupo | 'dm' = conversa privada | 'warmup' = aquecimento
+  kind?: 'group' | 'dm' | 'warmup';
   /// presente apenas quando kind = 'group'
   groupId?: string;
+  /// presente apenas quando kind = 'dm'
+  contactId?: string;
   remoteJid: string;
   text: string;
 }
@@ -101,7 +105,23 @@ export async function scheduleGroupDecision(
   groupId: string,
   debounceMs: number,
 ) {
-  const jobId = `grp:${instanceId}:${groupId}`;
+  return schedule(`grp:${instanceId}:${groupId}`, { instanceId, groupId }, debounceMs);
+}
+
+/**
+ * O mesmo para uma conversa privada. Chave propria (`dm:...`) para que grupo e
+ * privado do mesmo numero nao briguem pelo mesmo jobId — sao conversas
+ * diferentes e cada uma tem a sua ordem.
+ */
+export async function scheduleDmDecision(
+  instanceId: string,
+  contactId: string,
+  debounceMs: number,
+) {
+  return schedule(`dm:${instanceId}:${contactId}`, { instanceId, contactId }, debounceMs);
+}
+
+async function schedule(jobId: string, payload: DecideJob, debounceMs: number) {
   const queue = getDecideQueue();
 
   // Se ja existe um job aguardando o debounce, adia o disparo (janela deslizante).
@@ -128,5 +148,5 @@ export async function scheduleGroupDecision(
     }
   }
 
-  await queue.add('decide', { instanceId, groupId }, { jobId, delay: debounceMs });
+  await queue.add('decide', payload, { jobId, delay: debounceMs });
 }

@@ -53,6 +53,33 @@ export interface GroupRow {
   agent: { id: string; name: string } | null;
   participationMode: 'mention' | 'always' | 'keyword' | 'smart';
   lastActivityAt: string | null;
+  escalationEnabled: boolean;
+  dmAgentId: string | null;
+}
+
+export interface ContactRow {
+  id: string;
+  remoteJid: string;
+  phoneNumber: string | null;
+  pushName: string | null;
+  origin: string;
+  originGroup: { id: string; subject: string | null } | null;
+  agent: { id: string; name: string } | null;
+  aiEnabled: boolean;
+  lastActivityAt: string | null;
+  createdAt: string;
+  messageCount: number;
+}
+
+export interface ContactDetail extends ContactRow {
+  notes: string | null;
+  messages: Array<{
+    id: string;
+    direction: string;
+    content: string | null;
+    isFromAi: boolean;
+    createdAt: string;
+  }>;
 }
 
 export interface AgentRow {
@@ -206,6 +233,16 @@ export const api = {
   },
   patchGroup: (groupId: string, data: Partial<GroupRow>) =>
     call<GroupRow>(`/api/groups/${groupId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  listContacts: (id: string) => call<ContactRow[]>(`/api/instances/${id}/contacts`),
+  getContact: (contactId: string) => call<ContactDetail>(`/api/contacts/${contactId}`),
+  patchContact: (contactId: string, data: { aiEnabled?: boolean; notes?: string | null }) =>
+    call<ContactRow>(`/api/contacts/${contactId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  deleteContact: (contactId: string) =>
+    call<{ ok: boolean }>(`/api/contacts/${contactId}`, { method: 'DELETE' }),
+
   listEvents: (id: string, level?: string) =>
     call<EventRow[]>(`/api/instances/${id}/events${level ? `?level=${level}` : ''}`),
   listAgents: () => call<AgentRow[]>('/api/agents'),

@@ -75,6 +75,31 @@ export async function processSend(job: SendJob) {
       });
       return;
     }
+  } else if (kind === 'dm') {
+    // RECHECAGEM: o privado tambem obedece a pausa global e ao interruptor
+    // do contato. A pessoa pode ter sido silenciada enquanto a resposta
+    // esperava na fila.
+    if (!(await isAiGloballyEnabled())) {
+      await logEvent({
+        instanceId,
+        level: 'warn',
+        event: 'send_aborted',
+        message: 'privado descartado: pausa global acionada depois que entrou na fila',
+      });
+      return;
+    }
+    const contact = job.contactId
+      ? await prisma.contact.findUnique({ where: { id: job.contactId } })
+      : null;
+    if (!contact || !contact.aiEnabled || !instance.aiEnabled) {
+      await logEvent({
+        instanceId,
+        level: 'warn',
+        event: 'send_aborted',
+        message: 'privado descartado: IA foi desligada nesta conversa ou nesta instancia',
+      });
+      return;
+    }
   } else {
     // aquecimento: respeita o proprio interruptor e o da instancia
     const cfg = await getWarmupConfig();
@@ -132,6 +157,44 @@ export async function processSend(job: SendJob) {
         groupId: job.groupId,
         level: 'info',
         event: 'ai_replied',
+        message: text.length > 120 ? `${text.slice(0, 120)}…` : text,
+      });
+    } else if (kind === 'dm' && job.contactId) {
+      // Mesma gravacao das respostas de grupo: registra ja marcada como IA
+      // usando a chave da Evolution, para o eco do webhook cair no unique e
+      // o registro correto sobreviver.
+      const key = res?.key?.id;
+      if (key) {
+        await prisma.message
+          .create({
+            data: {
+              instanceId,
+              contactId: job.contactId,
+              evoKey: key,
+              remoteJid,
+              direction: 'outbound',
+              content: text,
+              messageType: 'conversation',
+              isFromAi: true,
+            },
+          })
+          .catch(() => undefined);
+      }
+
+      await prisma.contact.update({
+        where: { id: job.contactId },
+        data: { lastReplyAt: new Date(), lastActivityAt: new Date() },
+      });
+      await prisma.instance.update({
+        where: { id: instanceId },
+        data: { lastActivityAt: new Date() },
+      });
+      await bumpMetricBoth(instanceId, null, 'repliesSent');
+
+      await logEvent({
+        instanceId,
+        level: 'info',
+        event: 'dm_replied',
         message: text.length > 120 ? `${text.slice(0, 120)}…` : text,
       });
     } else {

@@ -85,6 +85,7 @@ model Instance {
   deletedAt         DateTime? @map("deleted_at")
 
   groups   Group[]
+  contacts Contact[]
   messages Message[]
   events   InstanceEvent[]
   metrics  MetricDaily[]
@@ -106,6 +107,10 @@ model Agent {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   groups Group[]
+  /// grupos que usam este agente para atender no PRIVADO. E aqui que mora o
+  /// que o grupo nao pode ver: preco, condicao, dado de cliente.
+  dmGroups Group[]   @relation("GroupDmAgent")
+  contacts Contact[]
 
   @@map("agents")
 }
@@ -129,6 +134,14 @@ model Group {
   agentId String? @map("agent_id")
   agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
 
+  /// CHAMAR NO PRIVADO. Desligado por padrao, igual a IA do grupo: puxar
+  /// alguem para o privado e uma acao com consequencia, entao e opt-in.
+  escalationEnabled Boolean @default(false) @map("escalation_enabled")
+  /// Quem atende no privado quando alguem sai deste grupo. Separado do agente
+  /// do grupo de proposito: o prompt publico e o privado nao sao o mesmo.
+  dmAgentId String? @map("dm_agent_id")
+  dmAgent   Agent?  @relation("GroupDmAgent", fields: [dmAgentId], references: [id], onDelete: SetNull)
+
   participationMode ParticipationMode @default(mention) @map("participation_mode")
   keywords          String[]          @default([])
   groupInstructions String?           @map("group_instructions")
@@ -148,6 +161,8 @@ model Group {
   memory   GroupMemory?
   metrics  MetricDaily[]
   events   InstanceEvent[]
+  /// pessoas que sairam deste grupo para o privado
+  contacts Contact[] @relation("ContactOrigin")
 
   /// O ISOLAMENTO VIVE AQUI: mesmo JID em instancias diferentes = linhas diferentes
   @@unique([instanceId, remoteJid])
@@ -161,8 +176,14 @@ model Message {
   instanceId String   @map("instance_id")
   instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
+  /// Uma mensagem e de GRUPO ou de CONTATO, nunca dos dois. Manter as duas
+  /// na mesma tabela preserva o unique (instance_id, evolution_key), que e o
+  /// que protege de duplicata quando a Evolution reenvia eventos.
   groupId String? @map("group_id")
   group   Group?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  contactId String?  @map("contact_id")
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   /// key.id da Evolution — base da idempotencia
   evoKey      String  @map("evolution_key")
@@ -181,7 +202,63 @@ model Message {
   /// ANTI-DUPLICATA: Evolution reenvia eventos em reconexao
   @@unique([instanceId, evoKey])
   @@index([instanceId, groupId, createdAt])
+  @@index([instanceId, contactId, createdAt])
   @@map("messages")
+}
+
+/**
+ * CONVERSA PRIVADA (1:1).
+ *
+ * Espelha o Group de proposito — mesma trava de isolamento, mesmo cooldown,
+ * mesmo teto diario — porque o privado passa pelas mesmas filas e pelo mesmo
+ * rate limit por numero que as respostas de grupo.
+ *
+ * Diferenca de politica: aqui a IA nasce LIGADA. No grupo, ninguem pediu para
+ * a IA falar; no privado, a pessoa veio conversar. Deixar desligado por
+ * padrao significaria alguem mandando mensagem e ninguem respondendo, que e
+ * pior do que nao ter convidado.
+ */
+model Contact {
+  id         String   @id @default(uuid())
+  instanceId String   @map("instance_id")
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  /// 5511...@s.whatsapp.net
+  remoteJid   String  @map("remote_jid")
+  phoneNumber String? @map("phone_number")
+  pushName    String? @map("push_name")
+  notes       String?
+
+  /// De qual grupo esta pessoa saiu. E o que permite a IA comecar o privado
+  /// sabendo do que se falava, em vez de a pessoa ter que repetir tudo.
+  originGroupId String? @map("origin_group_id")
+  originGroup   Group?  @relation("ContactOrigin", fields: [originGroupId], references: [id], onDelete: SetNull)
+
+  /// escalated = veio de um grupo | inbound = chegou por conta propria
+  origin String @default("inbound")
+
+  agentId String? @map("agent_id")
+  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  aiEnabled Boolean @default(true) @map("ai_enabled")
+
+  cooldownSeconds Int @default(15) @map("cooldown_seconds")
+  dailyMessageCap Int @default(80) @map("daily_message_cap")
+
+  lastActivityAt         DateTime? @map("last_activity_at")
+  lastReplyAt            DateTime? @map("last_reply_at")
+  lastProcessedMessageId BigInt?   @map("last_processed_message_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  messages Message[]
+
+  /// mesmo ISOLAMENTO do Group: mesma pessoa em instancias diferentes = linhas diferentes
+  @@unique([instanceId, remoteJid])
+  @@index([instanceId, aiEnabled])
+  @@index([instanceId, lastActivityAt])
+  @@map("contacts")
 }
 
 model GroupMemory {

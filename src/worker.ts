@@ -8,6 +8,7 @@ import {
   QUEUE_DECIDE,
   sendQueueName,
   scheduleGroupDecision,
+  scheduleDmDecision,
   type IngestJob,
   type DecideJob,
   type SendJob,
@@ -15,10 +16,14 @@ import {
 import * as service from './services/instanceService.js';
 import { syncGroups, backfillIncompleteGroups, upsertGroupFromEvent } from './services/groupSync.js';
 import { logEvent, bumpMetricBoth } from './services/eventLog.js';
-import { processGroupDecision } from './services/replyEngine.js';
+import { processGroupDecision, processDmDecision } from './services/replyEngine.js';
 import { processSend } from './services/sender.js';
 import { acquireLock, releaseLock } from './lib/redis.js';
-import { invalidateManagedNumbers } from './services/decisionGate.js';
+import {
+  invalidateManagedNumbers,
+  managedNumbers,
+  jidToNumber,
+} from './services/decisionGate.js';
 import { runWarmupTick } from './services/warmup.js';
 
 /**
@@ -172,6 +177,8 @@ async function handleMessage(job: IngestJob, outbound = false) {
     if (remoteJid === 'status@broadcast') continue;
 
     let groupId: string | null = null;
+    let contactId: string | null = null;
+
     if (isGroup) {
       const group = await prisma.group.upsert({
         where: { instanceId_remoteJid: { instanceId: job.instanceId, remoteJid } },
@@ -185,6 +192,27 @@ async function handleMessage(job: IngestJob, outbound = false) {
         select: { id: true },
       });
       groupId = group.id;
+    } else if (await isPersonJid(remoteJid, job.instanceId)) {
+      // CONVERSA PRIVADA. Antes isto caia no vazio: a mensagem era gravada
+      // sem dono e nenhuma decisao era agendada — quem chamasse o numero no
+      // privado nunca recebia resposta.
+      const contact = await prisma.contact.upsert({
+        where: { instanceId_remoteJid: { instanceId: job.instanceId, remoteJid } },
+        create: {
+          instanceId: job.instanceId,
+          remoteJid,
+          phoneNumber: jidToNumber(remoteJid) || null,
+          pushName: item.pushName ?? null,
+          origin: 'inbound',
+          lastActivityAt: new Date(),
+        },
+        update: {
+          lastActivityAt: new Date(),
+          ...(item.pushName ? { pushName: item.pushName } : {}),
+        },
+        select: { id: true },
+      });
+      contactId = contact.id;
     }
 
     const text = extractText(item.message);
@@ -194,6 +222,7 @@ async function handleMessage(job: IngestJob, outbound = false) {
         data: {
           instanceId: job.instanceId,
           groupId,
+          contactId,
           evoKey: key.id,
           remoteJid,
           participant: key.participant ?? null,
@@ -232,7 +261,36 @@ async function handleMessage(job: IngestJob, outbound = false) {
     if (isGroup && groupId && !fromMe && !outbound) {
       await scheduleGroupDecision(job.instanceId, groupId, env.GROUP_DEBOUNCE_MS);
     }
+
+    // No privado o debounce e menor: conversa 1:1 tem expectativa de resposta
+    // rapida, e nao existe o problema de varias pessoas falando ao mesmo tempo
+    // que justifica a janela larga do grupo.
+    if (!isGroup && contactId && !fromMe && !outbound) {
+      await scheduleDmDecision(job.instanceId, contactId, Math.min(env.GROUP_DEBOUNCE_MS, 3000));
+    }
   }
+}
+
+/**
+ * E uma pessoa de verdade, e nao um dos nossos proprios numeros?
+ *
+ * O filtro anti-loop dos grupos nao alcanca o privado, e sem esta checagem a
+ * MATURACAO viraria contato: um chip manda "oi, ja almocou?" para o outro, o
+ * outro cria um Contact, a IA do privado responde, e os dois numeros entram
+ * num loop que ninguem pediu — gastando IA e queimando os dois chips.
+ */
+async function isPersonJid(remoteJid: string, instanceId: string): Promise<boolean> {
+  if (!remoteJid.endsWith('@s.whatsapp.net')) return false; // newsletter, broadcast, etc.
+
+  const number = jidToNumber(remoteJid);
+  if (!number) return false;
+
+  const managed = await managedNumbers();
+  if (managed.has(number)) {
+    log.debug('dm.ignoredManagedNumber', { instanceId, number });
+    return false;
+  }
+  return true;
 }
 
 async function handleGroupsUpsert(job: IngestJob) {
@@ -358,15 +416,16 @@ worker.on('ready', () => log.info('worker.ready', { concurrency: env.WORKER_CONC
 const decideWorker = new Worker<DecideJob>(
   QUEUE_DECIDE,
   async (job: Job<DecideJob>) => {
-    const { instanceId, groupId } = job.data;
-    const key = `grp:${instanceId}:${groupId}`;
+    const { instanceId, groupId, contactId } = job.data;
+    const key = groupId ? `grp:${instanceId}:${groupId}` : `dm:${instanceId}:${contactId}`;
 
     if (!(await acquireLock(key, 120_000))) {
       log.debug('decide.lockBusy', { key });
       return;
     }
     try {
-      await processGroupDecision(instanceId, groupId);
+      if (groupId) await processGroupDecision(instanceId, groupId);
+      else if (contactId) await processDmDecision(instanceId, contactId);
     } finally {
       await releaseLock(key);
     }

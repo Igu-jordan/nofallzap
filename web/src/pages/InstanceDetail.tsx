@@ -12,12 +12,14 @@ import {
 import { on } from '../socket';
 import { StatusBadge, Avatar, Toggle, ErrorBox } from '../components/Common';
 import { QrModal } from '../components/QrModal';
+import { Contacts } from './Contacts';
 
-type Tab = 'overview' | 'groups' | 'settings' | 'logs' | 'connection';
+type Tab = 'overview' | 'groups' | 'contacts' | 'settings' | 'logs' | 'connection';
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'overview', label: 'Visão Geral' },
   { key: 'groups', label: 'Grupos' },
+  { key: 'contacts', label: 'Conversas privadas' },
   { key: 'settings', label: 'Configurações' },
   { key: 'logs', label: 'Logs' },
   { key: 'connection', label: 'Conexão' },
@@ -85,6 +87,7 @@ export function InstanceDetail({ id, onBack }: { id: string; onBack: () => void 
 
       {tab === 'overview' && <Overview data={data} />}
       {tab === 'groups' && <Groups instanceId={id} onChanged={load} />}
+      {tab === 'contacts' && <Contacts instanceId={id} />}
       {tab === 'settings' && <Settings data={data} onChanged={load} />}
       {tab === 'logs' && <Logs instanceId={id} />}
       {tab === 'connection' && (
@@ -261,6 +264,9 @@ function Groups({ instanceId, onChanged }: { instanceId: string; onChanged: () =
                 <th style={{ width: 90 }}>Part.</th>
                 <th style={{ width: 180 }}>Agente</th>
                 <th style={{ width: 150 }}>Modo</th>
+                <th style={{ width: 210 }} title="Levar a conversa para o privado">
+                  Chamar no privado
+                </th>
                 <th style={{ width: 120 }}>Atividade</th>
               </tr>
             </thead>
@@ -308,6 +314,33 @@ function Groups({ instanceId, onChanged }: { instanceId: string; onChanged: () =
                       <option value="keyword">Palavra-chave</option>
                       <option value="smart">Inteligente</option>
                     </select>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <Toggle
+                        checked={g.escalationEnabled}
+                        disabled={!g.dmAgentId}
+                        title={
+                          g.dmAgentId
+                            ? 'A IA pode levar a conversa para o privado'
+                            : 'Escolha antes o agente que atende no privado'
+                        }
+                        onChange={(v) => void patch(g, { escalationEnabled: v })}
+                      />
+                      <select
+                        className="input"
+                        style={{ flex: 1 }}
+                        value={g.dmAgentId ?? ''}
+                        onChange={(e) => void patch(g, { dmAgentId: e.target.value || null })}
+                      >
+                        <option value="">— agente do privado —</option>
+                        {agents.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </td>
                   <td style={{ color: 'var(--muted)', fontSize: 13 }}>{timeAgo(g.lastActivityAt)}</td>
                 </tr>

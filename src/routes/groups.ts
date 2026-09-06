@@ -11,6 +11,9 @@ const patchSchema = z.object({
   groupInstructions: z.string().max(4000).nullable().optional(),
   cooldownSeconds: z.number().int().min(0).max(86_400).optional(),
   dailyMessageCap: z.number().int().min(0).max(10_000).optional(),
+  // chamar no privado
+  escalationEnabled: z.boolean().optional(),
+  dmAgentId: z.string().uuid().nullable().optional(),
 });
 
 const bulkSchema = z.object({
@@ -67,15 +70,35 @@ export async function groupRoutes(app: FastifyInstance) {
     const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) return reply.code(404).send({ error: 'grupo nao encontrado' });
 
-    if (parsed.data.agentId) {
-      const agent = await prisma.agent.findUnique({ where: { id: parsed.data.agentId } });
+    for (const id of [parsed.data.agentId, parsed.data.dmAgentId]) {
+      if (!id) continue;
+      const agent = await prisma.agent.findUnique({ where: { id } });
       if (!agent) return reply.code(400).send({ error: 'agente nao encontrado' });
+    }
+
+    // Ligar o escalonamento sem agente do privado nao faz nada: o motor exige
+    // os dois. Melhor recusar aqui do que deixar a tela dizendo "ligado" e
+    // nada acontecer no grupo.
+    const dmAgentFinal =
+      parsed.data.dmAgentId !== undefined ? parsed.data.dmAgentId : group.dmAgentId;
+    const escalationFinal =
+      parsed.data.escalationEnabled !== undefined
+        ? parsed.data.escalationEnabled
+        : group.escalationEnabled;
+
+    if (escalationFinal && !dmAgentFinal) {
+      return reply
+        .code(400)
+        .send({ error: 'escolha o agente que atende no privado antes de ligar o escalonamento' });
     }
 
     const updated = await prisma.group.update({
       where: { id: groupId },
       data: parsed.data,
-      include: { agent: { select: { id: true, name: true } } },
+      include: {
+        agent: { select: { id: true, name: true } },
+        dmAgent: { select: { id: true, name: true } },
+      },
     });
 
     await publishRealtime('group:updated', {

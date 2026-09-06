@@ -12,6 +12,7 @@ import { attachRealtime } from './realtime/io.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { instanceRoutes } from './routes/instances.js';
 import { groupRoutes } from './routes/groups.js';
+import { contactRoutes } from './routes/contacts.js';
 import { settingsRoutes } from './routes/settings.js';
 import { warmupRoutes } from './routes/warmup.js';
 import * as evo from './evolution/client.js';
@@ -32,6 +33,7 @@ await app.register(cors, { origin: true, credentials: true });
 await app.register(webhookRoutes);
 await app.register(instanceRoutes);
 await app.register(groupRoutes);
+await app.register(contactRoutes);
 await app.register(settingsRoutes);
 await app.register(warmupRoutes);
 
