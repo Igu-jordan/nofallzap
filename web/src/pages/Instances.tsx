@@ -1,8 +1,29 @@
-import { useEffect, useState, useCallback } from 'react';
-import { api, timeAgo, formatDate, type InstanceSummary, type InstanceStatus } from '../api';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  api,
+  timeAgo,
+  formatDay,
+  STATUS_LABEL,
+  type InstanceSummary,
+  type InstanceStatus,
+} from '../api';
 import { on } from '../socket';
 import { StatusBadge, Avatar, ErrorBox } from '../components/Common';
 import { QrModal } from '../components/QrModal';
+import { PageHeader, SearchBar, DropdownMenu, MetricItem } from '../components/Layout';
+import {
+  IconeAbrirFora,
+  IconeCalendario,
+  IconeCelular,
+  IconeDetalhe,
+  IconeGrupos,
+  IconeIa,
+  IconeQr,
+  IconeRelogio,
+} from '../components/Icons';
+
+/// estados em que faz sentido oferecer o QR Code
+const PRECISA_CONECTAR: InstanceStatus[] = ['awaiting_qr', 'disconnected', 'error'];
 
 export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
   const [items, setItems] = useState<InstanceSummary[]>([]);
@@ -11,6 +32,8 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [qrFor, setQrFor] = useState<{ id: string; name: string } | null>(null);
+  /// filtro só de tela: mexe no que já foi carregado, não chama a API
+  const [busca, setBusca] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -65,16 +88,53 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
     }
   }
 
+  const conectados = items.filter((i) => i.status === 'connected').length;
+
+  const visiveis = useMemo(() => {
+    const t = busca.trim().toLowerCase();
+    if (!t) return items;
+    return items.filter((i) =>
+      [i.name, i.phoneNumber ?? '', i.profileName ?? '', STATUS_LABEL[i.status] ?? i.status]
+        .join(' ')
+        .toLowerCase()
+        .includes(t),
+    );
+  }, [items, busca]);
+
   if (loading) return <div className="empty">Carregando instâncias…</div>;
 
   return (
     <>
+      <PageHeader
+        titulo="Seus WhatsApps"
+        subtitulo="Gerencie seus números, acompanhe a atividade e mantenha seus WhatsApps sempre organizados."
+        acoes={
+          /* Sem plano contratado no sistema, não existe teto para mostrar —
+             então mostra o que é verdade: quantos estão no ar. */
+          <div className="resumo">
+            <div className="resumo-icone">
+              <IconeCelular />
+            </div>
+            <div>
+              <div className="resumo-num">
+                {conectados}
+                {items.length > conectados && (
+                  <span className="resumo-total"> / {items.length}</span>
+                )}
+              </div>
+              <div className="resumo-label">
+                {conectados === 1 ? 'número ativo' : 'números ativos'}
+              </div>
+            </div>
+          </div>
+        }
+      />
+
       <ErrorBox message={error} />
 
-      <div className="toolbar">
+      <div className="form-adicionar">
         <input
           className="input"
-          style={{ maxWidth: 280 }}
           placeholder="Nome interno (ex: WhatsApp Suporte)"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
@@ -89,75 +149,29 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
         </button>
       </div>
 
+      {items.length > 0 && (
+        <div className="linha-ferramentas">
+          <SearchBar valor={busca} onChange={setBusca} />
+        </div>
+      )}
+
       {items.length === 0 ? (
         <div className="empty">
           Nenhum WhatsApp conectado ainda.
           <br />
           Dê um nome interno acima e clique em Adicionar.
         </div>
+      ) : visiveis.length === 0 ? (
+        <div className="empty">Nenhum número bate com “{busca}”.</div>
       ) : (
         <div className="grid">
-          {items.map((i) => (
-            <div key={i.id} className="card clickable" onClick={() => onOpen(i.id)}>
-              <div className="card-head">
-                <Avatar url={i.profilePicUrl} name={i.name} />
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div className="card-title">{i.name}</div>
-                  <div className="card-sub">{i.phoneNumber ? `+${i.phoneNumber}` : 'sem número'}</div>
-                </div>
-                <StatusBadge status={i.status} />
-              </div>
-
-              {/* "Conectado" sozinho engana quando o envio esta sendo recusado */}
-              {i.deliveryBlockedAt && (
-                <div
-                  style={{
-                    color: 'var(--danger)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    marginTop: 8,
-                  }}
-                >
-                  não está entregando — IA desligada automaticamente
-                </div>
-              )}
-
-              <div className="stats">
-                <div>
-                  <div className="stat-num">{i.groupsCount}</div>
-                  <div className="stat-label">grupos</div>
-                </div>
-                <div>
-                  <div className="stat-num" style={{ color: i.groupsWithAi ? 'var(--accent)' : undefined }}>
-                    {i.groupsWithAi}
-                  </div>
-                  <div className="stat-label">com IA</div>
-                </div>
-                <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                  <div className="stat-num" style={{ fontSize: 13, fontWeight: 500 }}>
-                    {timeAgo(i.lastActivityAt)}
-                  </div>
-                  <div className="stat-label">última atividade</div>
-                </div>
-              </div>
-
-              <div className="meta">
-                <span>criada em {formatDate(i.createdAt)}</span>
-                {(i.status === 'awaiting_qr' ||
-                  i.status === 'disconnected' ||
-                  i.status === 'error') && (
-                  <button
-                    className="btn btn-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setQrFor({ id: i.id, name: i.name });
-                    }}
-                  >
-                    Conectar
-                  </button>
-                )}
-              </div>
-            </div>
+          {visiveis.map((i) => (
+            <CardInstancia
+              key={i.id}
+              instancia={i}
+              onAbrir={() => onOpen(i.id)}
+              onConectar={() => setQrFor({ id: i.id, name: i.name })}
+            />
           ))}
         </div>
       )}
@@ -171,5 +185,122 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
         />
       )}
     </>
+  );
+}
+
+function CardInstancia({
+  instancia: i,
+  onAbrir,
+  onConectar,
+}: {
+  instancia: InstanceSummary;
+  onAbrir: () => void;
+  onConectar: () => void;
+}) {
+  const precisaConectar = PRECISA_CONECTAR.includes(i.status);
+  /// só existe quando o número já conectou alguma vez
+  const linkWhatsapp = i.phoneNumber ? `https://wa.me/${i.phoneNumber}` : null;
+
+  function abrirWhatsapp() {
+    if (linkWhatsapp) window.open(linkWhatsapp, '_blank', 'noopener,noreferrer');
+  }
+
+  return (
+    <div className="card clickable" onClick={onAbrir}>
+      <div className="card-head">
+        <Avatar url={i.profilePicUrl} name={i.name} />
+        <div className="card-identidade">
+          <div className="card-title">{i.name}</div>
+          <div className="card-sub">{i.phoneNumber ? `+${i.phoneNumber}` : 'sem número'}</div>
+        </div>
+        <StatusBadge status={i.status} />
+        <DropdownMenu
+          rotulo={`Ações de ${i.name}`}
+          opcoes={[
+            { rotulo: 'Ver detalhes', icone: <IconeDetalhe size={16} />, onClick: onAbrir },
+            ...(precisaConectar
+              ? [{ rotulo: 'Conectar (QR Code)', icone: <IconeQr size={16} />, onClick: onConectar }]
+              : []),
+            ...(linkWhatsapp
+              ? [
+                  {
+                    rotulo: 'Abrir no WhatsApp',
+                    icone: <IconeAbrirFora size={16} />,
+                    onClick: abrirWhatsapp,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      </div>
+
+      {/* "Conectado" sozinho engana quando o envio esta sendo recusado */}
+      {i.deliveryBlockedAt && (
+        <div className="aviso-entrega">não está entregando — IA desligada automaticamente</div>
+      )}
+
+      <div className="divisor" />
+
+      <div className="metricas">
+        <MetricItem icone={<IconeGrupos size={16} />} valor={i.groupsCount} label="grupos" />
+        <MetricItem
+          icone={<IconeIa size={16} />}
+          valor={i.groupsWithAi}
+          label="com IA"
+          neutro={i.groupsWithAi === 0}
+        />
+        <MetricItem
+          icone={<IconeRelogio size={16} />}
+          valor={timeAgo(i.lastActivityAt)}
+          label="última atividade"
+          neutro
+        />
+        <MetricItem
+          icone={<IconeCalendario size={16} />}
+          valor={formatDay(i.createdAt)}
+          label="criada em"
+          neutro
+        />
+      </div>
+
+      <div className="card-rodape">
+        <button
+          className="btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAbrir();
+          }}
+        >
+          <IconeDetalhe size={16} />
+          Ver detalhes
+        </button>
+
+        {precisaConectar ? (
+          <button
+            className="btn btn-verde"
+            onClick={(e) => {
+              e.stopPropagation();
+              onConectar();
+            }}
+          >
+            <IconeQr size={16} />
+            Conectar
+          </button>
+        ) : (
+          linkWhatsapp && (
+            <button
+              className="btn btn-verde"
+              onClick={(e) => {
+                e.stopPropagation();
+                abrirWhatsapp();
+              }}
+            >
+              <IconeAbrirFora size={16} />
+              Abrir no WhatsApp
+            </button>
+          )
+        )}
+      </div>
+    </div>
   );
 }

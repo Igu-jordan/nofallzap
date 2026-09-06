@@ -63,7 +63,7 @@ export function InstanceDetail({ id, onBack }: { id: string; onBack: () => void 
       <div className="card-head" style={{ marginBottom: 20 }}>
         <Avatar url={data.profilePicUrl} name={data.name} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{data.name}</div>
+          <h1 className="titulo-secao">{data.name}</h1>
           <div className="card-sub">
             {data.phoneNumber ? `+${data.phoneNumber}` : 'sem número'} · {data.evoName}
           </div>

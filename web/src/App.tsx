@@ -6,11 +6,15 @@ import { InstanceDetail } from './pages/InstanceDetail';
 import { Agents } from './pages/Agents';
 import { Warmup } from './pages/Warmup';
 import { Rotators } from './pages/Rotators';
+import { Sidebar } from './components/Sidebar';
+import { IconeMenu } from './components/Icons';
 
 export default function App() {
   const [route, setRoute] = useState(() => window.location.hash.slice(1));
   const [aiEnabled, setAiEnabled] = useState(true);
   const [busy, setBusy] = useState(false);
+  /// só tem efeito no celular, onde a sidebar vira gaveta
+  const [menuAberto, setMenuAberto] = useState(false);
 
   useEffect(() => {
     const handler = () => setRoute(window.location.hash.slice(1));
@@ -43,69 +47,76 @@ export default function App() {
     }
   }
 
+  function navegar(hash: string) {
+    window.location.hash = hash;
+    setMenuAberto(false);
+  }
+
   const instanceId = route.startsWith('/instance/') ? route.replace('/instance/', '') : null;
 
   return (
-    <>
-      <header className="topbar">
-        {/* Clicar na marca volta para a lista de instancias — e o que todo
-            mundo tenta fazer sem pensar. O alt guarda o nome para quando a
-            imagem nao carregar. */}
-        <a className="brand" href="#/" aria-label="NoFallZap — início">
-          <img className="brand-icone" src="/marca-icone.png" alt="" />
-          <img className="brand-nome" src="/marca-nome.png" alt="NoFallZap" />
-        </a>
-        <span style={{ color: 'var(--muted)', fontSize: 13 }}>Painel multi-instância</span>
-        <button
-          className="btn btn-sm"
-          style={{ marginLeft: 8 }}
-          onClick={() => (window.location.hash = '/agentes')}
-        >
-          Agentes
-        </button>
-        <button
-          className="btn btn-sm"
-          style={{ marginLeft: 4 }}
-          onClick={() => (window.location.hash = '/maturacao')}
-        >
-          Maturação
-        </button>
-        <button
-          className="btn btn-sm"
-          style={{ marginLeft: 4 }}
-          onClick={() => (window.location.hash = '/rodizio')}
-        >
-          Rodízio de link
-        </button>
-        <div className="spacer" />
-        <button
-          className={`kill-switch ${aiEnabled ? '' : 'paused'}`}
-          onClick={() => void toggleGlobalAi()}
-          disabled={busy}
-        >
-          {aiEnabled ? 'PAUSAR TODAS AS IAs' : 'IAs PAUSADAS — retomar'}
-        </button>
-      </header>
+    <div className="app-shell">
+      {/* Curvas verdes e o símbolo da marca. Puramente decorativo: fica atrás
+          de tudo e não captura clique. */}
+      <div className="fundo-decorativo" aria-hidden="true">
+        <span className="b1" />
+        <span className="b2" />
+        <span className="b3" />
+      </div>
+      <img
+        className="marca-dagua"
+        src="/assets/branding/nofallzap-symbol.svg"
+        alt=""
+        aria-hidden="true"
+      />
 
-      <main className="container">
-        {!aiEnabled && (
-          <div className="banner">
-            Pausa global ativa. Nenhuma resposta automática está sendo enviada por nenhum número.
+      <Sidebar rota={route} aberta={menuAberto} onNavegar={navegar} />
+      <div
+        className={`sidebar-veu ${menuAberto ? 'visivel' : ''}`}
+        onClick={() => setMenuAberto(false)}
+      />
+
+      <main className="app-main">
+        <div className="app-conteudo">
+          {/* Faixa de topo: o hambúrguer só aparece no celular, e o botão de
+              emergência fica sempre no mesmo canto, em qualquer tela. */}
+          <div className="app-barra">
+            <button
+              className="hamburger"
+              onClick={() => setMenuAberto(true)}
+              aria-label="Abrir menu"
+            >
+              <IconeMenu />
+            </button>
+            <div className="spacer" />
+            <button
+              className={`kill-switch ${aiEnabled ? '' : 'paused'}`}
+              onClick={() => void toggleGlobalAi()}
+              disabled={busy}
+            >
+              {aiEnabled ? 'PAUSAR TODAS AS IAs' : 'IAs PAUSADAS — retomar'}
+            </button>
           </div>
-        )}
 
-        {route === '/agentes' ? (
-          <Agents onBack={() => (window.location.hash = '')} />
-        ) : route === '/maturacao' ? (
-          <Warmup onBack={() => (window.location.hash = '')} />
-        ) : route === '/rodizio' ? (
-          <Rotators onBack={() => (window.location.hash = '')} />
-        ) : instanceId ? (
-          <InstanceDetail id={instanceId} onBack={() => (window.location.hash = '')} />
-        ) : (
-          <Instances onOpen={(id) => (window.location.hash = `/instance/${id}`)} />
-        )}
+          {!aiEnabled && (
+            <div className="banner">
+              Pausa global ativa. Nenhuma resposta automática está sendo enviada por nenhum número.
+            </div>
+          )}
+
+          {route === '/agentes' ? (
+            <Agents onBack={() => navegar('')} />
+          ) : route === '/maturacao' ? (
+            <Warmup onBack={() => navegar('')} />
+          ) : route === '/rodizio' ? (
+            <Rotators onBack={() => navegar('')} />
+          ) : instanceId ? (
+            <InstanceDetail id={instanceId} onBack={() => navegar('')} />
+          ) : (
+            <Instances onOpen={(id) => navegar(`/instance/${id}`)} />
+          )}
+        </div>
       </main>
-    </>
+    </div>
   );
 }

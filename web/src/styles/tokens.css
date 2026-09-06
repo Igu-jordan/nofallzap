@@ -1,0 +1,84 @@
+/**
+ * TOKENS DE DESIGN — a única fonte de cor, sombra e raio do painel.
+ *
+ * Nenhum componente escreve cor no meio do código: tudo sai daqui. Trocar a
+ * marca inteira é mexer neste arquivo.
+ *
+ * A segunda metade (APELIDOS) existe por um motivo prático: as telas antigas
+ * já usavam --muted, --accent, --border e companhia em dezenas de lugares.
+ * Em vez de caçar e reescrever cada um — com risco de quebrar tela que já
+ * funciona —, os nomes antigos passaram a apontar para os tokens novos. O
+ * visual muda em tudo de uma vez e nenhuma lógica foi tocada.
+ */
+
+:root {
+  /* ------------------------------------------------------------ fundos */
+  --bg-main: #080d12;
+  --bg-sidebar: #091017;
+  --bg-header: #0b1118;
+  --bg-surface: #0d151d;
+  --bg-surface-hover: #111c26;
+  --bg-card: #0d161e;
+  --bg-card-hover: #111d26;
+  --bg-input: #0b131b;
+
+  /* ------------------------------------------------------------- verde */
+  --green-primary: #00e883;
+  --green-secondary: #00c96b;
+  --green-dark: #006b42;
+  --green-hover: #16f39a;
+  --green-soft: rgba(0, 232, 131, 0.1);
+  --green-soft-2: rgba(0, 232, 131, 0.16);
+  --green-border: rgba(0, 232, 131, 0.25);
+
+  /* ------------------------------------------------------------- texto */
+  --text-primary: #f3f7fa;
+  --text-secondary: #9dadbc;
+  --text-muted: #647588;
+  --text-disabled: #475462;
+
+  /* ------------------------------------------------------------ bordas */
+  --border-default: #1d2b38;
+  --border-light: #263746;
+  --border-hover: #355065;
+
+  /* ------------------------------------------------------------ status */
+  --success: #00e883;
+  --success-bg: rgba(0, 232, 131, 0.1);
+  --warning: #f5b942;
+  --warning-bg: rgba(245, 185, 66, 0.1);
+  --danger-color: #ff5d69;
+  --danger-bg: rgba(255, 93, 105, 0.1);
+  --info-color: #5daeff;
+  --info-bg: rgba(93, 174, 255, 0.1);
+
+  /* ----------------------------------------------------------- sombras */
+  --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.22);
+  --shadow-green: 0 0 25px rgba(0, 232, 131, 0.1);
+
+  /* ------------------------------------------------------------- forma */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-card: 18px;
+  --radius-pill: 999px;
+
+  --sidebar-w: 280px;
+  --sidebar-w-compacta: 80px;
+
+  /* ------------------------------------------------------------ APELIDOS
+     Nomes antigos, ainda usados nas telas. Não remover sem varrer o código. */
+  --bg: var(--bg-main);
+  --surface: var(--bg-surface);
+  --surface-2: var(--bg-surface-hover);
+  --border: var(--border-default);
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+  --accent: var(--green-primary);
+  --accent-dim: var(--green-secondary);
+  --danger: var(--danger-color);
+  --warn: var(--warning);
+  --info: var(--info-color);
+
+  color-scheme: dark;
+}

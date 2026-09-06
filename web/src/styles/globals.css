@@ -1,0 +1,406 @@
+/**
+ * BASE E ESQUELETO — reset, tipografia, layout (sidebar + área principal),
+ * fundo decorativo e barra de rolagem.
+ */
+
+/* Inter vem do próprio projeto: a fonte é baixada no build e servida junto
+   com o painel, então não há chamada a servidor de fonte em runtime. */
+@import '@fontsource-variable/inter';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-main);
+  color: var(--text-primary);
+}
+
+body {
+  font-family: 'Inter Variable', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+a {
+  color: var(--green-primary);
+}
+
+/* Foco visível só para quem navega por teclado — o anel não pisca a cada
+   clique de mouse, mas quem usa Tab nunca fica perdido. */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 232, 131, 0.13);
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: #243440;
+  border-radius: 20px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334958;
+}
+
+/* =========================================================== ESQUELETO */
+
+.app-shell {
+  min-height: 100vh;
+}
+
+/* ------------------------------------------------------------- sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-w);
+  height: 100vh;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px 20px;
+  z-index: 60;
+  transition: width 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar-marca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  padding: 0 6px;
+}
+.sidebar-marca img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  flex: none;
+}
+.marca-nome {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+.marca-nome span {
+  color: var(--green-primary);
+}
+.marca-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 30px;
+}
+
+.nav-item {
+  position: relative;
+  height: 56px;
+  padding: 0 18px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--text-secondary);
+  text-align: left;
+  width: 100%;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.nav-item svg {
+  flex: none;
+}
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-primary);
+}
+.nav-item.ativo {
+  background: linear-gradient(90deg, rgba(0, 232, 131, 0.16), rgba(0, 232, 131, 0.06));
+  color: var(--green-primary);
+}
+/* trilho verde à esquerda do item ativo */
+.nav-item.ativo::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 30px;
+  border-radius: 0 4px 4px 0;
+  background: var(--green-primary);
+  box-shadow: 0 0 16px rgba(0, 232, 131, 0.35);
+}
+
+.sidebar-rodape {
+  margin-top: auto;
+  padding: 14px 16px 0;
+  border-top: 1px solid var(--border-default);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------ área principal */
+/* Sem fundo próprio de propósito: o fundo é o do body, e assim as curvas
+   decorativas e a marca d'água (que ficam em z-index 0) aparecem por baixo
+   do conteúdo em vez de serem tapadas por um retângulo opaco. */
+.app-main {
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+  transition: margin-left 0.2s ease;
+}
+.app-conteudo {
+  padding: 32px 42px 60px;
+  max-width: 1600px;
+  position: relative;
+  z-index: 1;
+}
+
+/* faixa de topo: hambúrguer (só no celular) + botão de emergência */
+.app-barra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+/* --------------------------------------------- cabeçalho da área principal */
+.pagina-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+.pagina-topo-texto {
+  min-width: 0;
+  flex: 1 1 340px;
+}
+.pagina-titulo {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.pagina-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 6px 0 0;
+  max-width: 620px;
+}
+.pagina-topo .acoes {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* botão de abrir a sidebar no celular */
+.hamburger {
+  display: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.sidebar-veu {
+  display: none;
+}
+
+/* ------------------------------------------------- fundo decorativo */
+/* Curvas verdes bem apagadas no rodapé da página. É CSS puro: nada de
+   imagem pesada, e nada captura clique. */
+.fundo-decorativo {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.fundo-decorativo span {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0, 232, 131, 0.12), rgba(0, 100, 70, 0.02));
+  opacity: 0.4;
+  pointer-events: none;
+}
+.fundo-decorativo .b1 {
+  width: 620px;
+  height: 620px;
+  right: -180px;
+  bottom: -300px;
+}
+.fundo-decorativo .b2 {
+  width: 420px;
+  height: 420px;
+  right: 120px;
+  bottom: -260px;
+  opacity: 0.25;
+}
+.fundo-decorativo .b3 {
+  width: 320px;
+  height: 320px;
+  left: calc(var(--sidebar-w) + 40px);
+  bottom: -220px;
+  opacity: 0.18;
+}
+
+/* marca d'água: o símbolo da marca no canto inferior direito */
+.marca-dagua {
+  position: fixed;
+  right: 20px;
+  bottom: 0;
+  width: 300px;
+  opacity: 0.1;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ====================================================== RESPONSIVIDADE */
+
+@media (max-width: 1200px) {
+  .app-conteudo {
+    padding: 28px 28px 60px;
+  }
+}
+
+/* Abaixo de 992px a sidebar vira uma faixa de ícones. */
+@media (max-width: 992px) {
+  :root {
+    --sidebar-w: var(--sidebar-w-compacta);
+  }
+  .sidebar {
+    padding: 20px 10px 16px;
+    align-items: center;
+  }
+  .sidebar-marca {
+    justify-content: center;
+    padding: 0;
+  }
+  .marca-texto {
+    display: none;
+  }
+  .nav-item {
+    justify-content: center;
+    padding: 0;
+    width: 56px;
+  }
+  .nav-item .rotulo {
+    display: none;
+  }
+  .nav-item.ativo::before {
+    left: -10px;
+  }
+  .sidebar-rodape {
+    display: none;
+  }
+  .marca-dagua {
+    width: 220px;
+  }
+}
+
+/* Abaixo de 768px a sidebar sai do fluxo e vira gaveta. */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 260px;
+    padding: 22px 14px 18px;
+    align-items: stretch;
+    transform: translateX(-100%);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  }
+  .sidebar.aberta {
+    transform: translateX(0);
+  }
+  .sidebar-marca {
+    justify-content: flex-start;
+    padding: 0 6px;
+  }
+  .marca-texto {
+    display: block;
+  }
+  .nav-item {
+    justify-content: flex-start;
+    padding: 0 18px;
+    width: 100%;
+  }
+  .nav-item .rotulo {
+    display: inline;
+  }
+  .nav-item.ativo::before {
+    left: -14px;
+  }
+  .sidebar-rodape {
+    display: block;
+  }
+  .app-main {
+    margin-left: 0;
+  }
+  .app-conteudo {
+    padding: 20px 18px 60px;
+  }
+  .hamburger {
+    display: inline-flex;
+  }
+  .sidebar-veu.visivel {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 55;
+  }
+  .pagina-titulo {
+    font-size: 24px;
+  }
+  .fundo-decorativo .b3 {
+    display: none;
+  }
+  .marca-dagua {
+    width: 160px;
+    opacity: 0.07;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-conteudo {
+    padding: 16px 14px 50px;
+  }
+  .pagina-topo .acoes {
+    margin-left: 0;
+    width: 100%;
+  }
+}

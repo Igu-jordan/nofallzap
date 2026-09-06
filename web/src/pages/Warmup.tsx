@@ -104,7 +104,7 @@ export function Warmup({ onBack }: { onBack: () => void }) {
       </button>
 
       <div className="toolbar">
-        <div style={{ fontSize: 20, fontWeight: 700 }}>Maturação de chip</div>
+        <h1 className="titulo-secao">Maturação de chip</h1>
         <div className="spacer" />
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>
           {cfg.enabled ? 'Aquecimento ligado' : 'Aquecimento desligado'}

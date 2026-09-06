@@ -1,0 +1,54 @@
+<svg width="960" height="260" viewBox="0 0 960 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="40" y1="30" x2="240" y2="230" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5CFFB0"/>
+      <stop offset="0.5" stop-color="#00E883"/>
+      <stop offset="1" stop-color="#00B86B"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="220" y1="60" x2="120" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#69FFAF"/>
+      <stop offset="1" stop-color="#00D67A"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#00E883" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Symbol -->
+  <g transform="translate(18 18)" filter="url(#shadow)">
+    <!-- chat / circular body -->
+    <path d="M106 35C66.8 35 35 66.8 35 106c0 15.1 4.7 29.1 12.8 40.6L36 191l44.8-11.8A70.5 70.5 0 0 0 106 184c39.2 0 71-31.8 71-71S145.2 35 106 35Z"
+          stroke="url(#g1)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- lower rise arrow -->
+    <path d="M99 190c38.2 0 70.3-23.7 83.4-57.2" stroke="url(#g2)" stroke-width="14" stroke-linecap="round"/>
+    <path d="M174 126l21 10-7 22" stroke="url(#g2)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- phone -->
+    <path d="M83 83c7-7 14-1 18 5l8 12c3 5 2 10-2 14l-7 7c10 18 22 30 40 40l7-7c4-4 9-5 14-2l12 8c6 4 12 11 5 18-8 8-19 13-30 10-29-8-62-41-70-70-3-11 2-22 10-30Z"
+          fill="#F7FAFC"/>
+    <!-- shield -->
+    <path d="M142 22l34 13v29c0 25-13 45-34 56-21-11-34-31-34-56V35l34-13Z" fill="url(#g1)"/>
+    <path d="M128 67l10 10 20-24" stroke="#08110D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g transform="translate(275 0)">
+    <text x="0" y="145"
+          font-family="Inter, Arial, Helvetica, sans-serif"
+          font-size="92"
+          font-weight="800"
+          letter-spacing="-4"
+          fill="#F4F7FA">NoFall</text>
+    <text x="275" y="145"
+          font-family="Inter, Arial, Helvetica, sans-serif"
+          font-size="92"
+          font-weight="800"
+          letter-spacing="-4"
+          fill="#00E883">Zap</text>
+    <text x="4" y="191"
+          font-family="Inter, Arial, Helvetica, sans-serif"
+          font-size="22"
+          font-weight="500"
+          letter-spacing="6"
+          fill="#91A0AE">PAINEL MULTI-INSTÂNCIA</text>
+  </g>
+</svg>

@@ -67,10 +67,10 @@ export function Rotators({ onBack }: { onBack: () => void }) {
       </button>
 
       <div className="toolbar">
-        <div style={{ fontSize: 20, fontWeight: 700 }}>Rodízio de link</div>
+        <h1 className="titulo-secao">Rodízio de link</h1>
       </div>
 
-      <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16, maxWidth: 760 }}>
+      <div className="texto-apoio">
         Um link só para usar no anúncio. A cada clique ele manda o lead para um número diferente
         da lista. Número que caiu, que não está entregando ou que bateu o teto do dia sai da
         rotação sozinho — e volta quando normalizar.
@@ -120,16 +120,7 @@ export function Rotators({ onBack }: { onBack: () => void }) {
                 />
               </div>
 
-              <div
-                className="jid"
-                style={{
-                  background: 'var(--bg)',
-                  padding: '8px 10px',
-                  borderRadius: 8,
-                  margin: '10px 0',
-                  wordBreak: 'break-all',
-                }}
-              >
+              <div className="jid rodizio-link">
                 {LINK_BASE}/r/{r.slug}
               </div>
 
@@ -146,15 +137,7 @@ export function Rotators({ onBack }: { onBack: () => void }) {
 
               {/* Botoes em linha propria: com o "Apagar" eles nao cabiam mais
                   ao lado dos numeros e quebravam palavra no meio. */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 6,
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  marginTop: 10,
-                }}
-              >
+              <div className="card-acoes">
                   <button
                     className="btn btn-sm"
                     onClick={() =>

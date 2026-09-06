@@ -387,3 +387,19 @@ export function formatDate(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
+
+/**
+ * Data curta, ano com dois digitos: "05/09/26".
+ *
+ * Existe porque no card do numero a data completa com hora nao cabia na
+ * coluna e saia cortada no meio ("05/09/20..."). Onde ha espaco, continue
+ * usando formatDate.
+ */
+export function formatDay(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  });
+}

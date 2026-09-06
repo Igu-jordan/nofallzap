@@ -1,0 +1,843 @@
+/**
+ * COMPONENTES.
+ *
+ * As classes daqui já eram usadas pelas telas (.card, .btn, .badge, .input,
+ * .stats, .toggle, .tabs...). Só a aparência mudou — nenhum nome de classe
+ * foi renomeado, para que nenhuma tela precisasse ser reescrita.
+ */
+
+/* ---------------------------------------------------------------- botões */
+.btn {
+  border: 1px solid var(--border-light);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 9px 15px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.btn:hover:not(:disabled) {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--text-disabled);
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--green-primary), var(--green-secondary));
+  border-color: transparent;
+  color: #03110a;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(0, 232, 131, 0.12);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.btn-primary:disabled {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+  box-shadow: none;
+  color: var(--text-disabled);
+}
+.btn-verde {
+  background: var(--green-soft);
+  border-color: rgba(0, 232, 131, 0.18);
+  color: var(--text-primary);
+}
+.btn-verde:hover:not(:disabled) {
+  background: rgba(0, 232, 131, 0.13);
+  border-color: var(--green-border);
+}
+.btn-danger {
+  color: var(--danger-color);
+  border-color: rgba(255, 93, 105, 0.28);
+  background: transparent;
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-bg);
+  border-color: rgba(255, 93, 105, 0.45);
+}
+.btn-sm {
+  padding: 6px 11px;
+  font-size: 13px;
+}
+
+.kill-switch {
+  border: 1px solid rgba(255, 93, 105, 0.45);
+  background: transparent;
+  color: var(--danger-color);
+  font-weight: 700;
+  padding: 11px 18px;
+  border-radius: var(--radius);
+  letter-spacing: 0.2px;
+  font-size: 13px;
+  transition: background 0.18s ease;
+}
+.kill-switch:hover {
+  background: var(--danger-bg);
+}
+.kill-switch.paused {
+  background: var(--danger-color);
+  border-color: var(--danger-color);
+  color: #16060a;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.72;
+  }
+}
+
+/* título das telas internas (Agentes, Maturação, Rodízio, detalhe) */
+.titulo-secao {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.crumb {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.crumb:hover {
+  color: var(--green-primary);
+}
+
+/* ---------------------------------------------------------- busca global */
+.busca {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+}
+.busca svg {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.busca input {
+  width: 100%;
+  height: 46px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  padding: 0 18px 0 44px;
+  color: var(--text-primary);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.busca input::placeholder {
+  color: var(--text-muted);
+}
+.busca input:focus {
+  outline: none;
+  border-color: rgba(0, 232, 131, 0.4);
+  box-shadow: 0 0 0 3px rgba(0, 232, 131, 0.06);
+}
+
+/* ------------------------------------------------------- card de resumo */
+.resumo {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: linear-gradient(135deg, rgba(0, 232, 131, 0.12), rgba(0, 232, 131, 0.035));
+  border: 1px solid rgba(0, 232, 131, 0.18);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  min-width: 230px;
+}
+.resumo-num {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.resumo-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 5px;
+}
+.resumo-total {
+  color: var(--text-muted);
+  font-size: 17px;
+}
+.resumo-icone {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--green-soft-2);
+  color: var(--green-primary);
+  flex: none;
+}
+
+/* ---------------------------------------------------------------- barras */
+.linha-ferramentas {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.spacer {
+  flex: 1;
+}
+
+/* formulário de adicionar WhatsApp */
+.form-adicionar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+.form-adicionar .input {
+  height: 54px;
+  max-width: 340px;
+  border-radius: var(--radius);
+  padding: 0 18px;
+}
+.form-adicionar .btn {
+  height: 54px;
+  padding: 0 22px;
+  border-radius: var(--radius);
+}
+
+/* ---------------------------------------------------------------- badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.badge.connected {
+  color: var(--success);
+  background: var(--success-bg);
+  border-color: rgba(0, 232, 131, 0.35);
+}
+.badge.connected .dot {
+  box-shadow: 0 0 10px rgba(0, 232, 131, 0.6);
+  animation: statusPulse 2.6s ease-out infinite;
+}
+@keyframes statusPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 232, 131, 0.35);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(0, 232, 131, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 232, 131, 0);
+  }
+}
+.badge.awaiting_qr,
+.badge.creating {
+  color: var(--warning);
+  background: var(--warning-bg);
+  border-color: rgba(245, 185, 66, 0.32);
+}
+.badge.connecting,
+.badge.reconnecting {
+  color: var(--info-color);
+  background: var(--info-bg);
+  border-color: rgba(93, 174, 255, 0.32);
+}
+.badge.disconnected {
+  color: var(--text-secondary);
+  background: rgba(157, 173, 188, 0.08);
+  border-color: rgba(157, 173, 188, 0.24);
+}
+.badge.error {
+  color: var(--danger-color);
+  background: var(--danger-bg);
+  border-color: rgba(255, 93, 105, 0.35);
+}
+
+/* ----------------------------------------------------------------- cards */
+.grid {
+  display: grid;
+  /* auto-fill e nao auto-fit: com um card so na tela, o auto-fit estica ele
+     ate a largura inteira e o card fica desproporcional. */
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 24px;
+}
+.card {
+  background: linear-gradient(180deg, #0e1821 0%, #0b141c 100%);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  padding: 22px;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card.clickable {
+  cursor: pointer;
+}
+.card:hover {
+  border-color: rgba(0, 232, 131, 0.2);
+}
+.card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.28);
+}
+
+.card-head {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.avatar {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--bg-surface-hover);
+  border: 2px solid rgba(0, 232, 131, 0.35);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--green-primary);
+  object-fit: cover;
+  overflow: hidden;
+}
+.card-identidade {
+  min-width: 0;
+  flex: 1;
+}
+.card-title {
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-sub {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.divisor {
+  height: 1px;
+  background: var(--border-default);
+  margin: 18px 0;
+}
+
+/* métricas do card */
+.metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 16px;
+}
+.metrica {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.metrica-topo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--green-primary);
+}
+.metrica-topo.neutra {
+  color: var(--text-secondary);
+}
+.metrica-valor {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.metrica-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Cards da mesma linha ficam da mesma altura; o rodapé desce para a base
+   para os botões alinharem entre um card e outro. */
+.grid > .card {
+  display: flex;
+  flex-direction: column;
+}
+.card-rodape {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 18px;
+  flex-wrap: wrap;
+}
+.card-rodape .btn {
+  flex: 1;
+  min-width: 130px;
+  justify-content: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* caixa do link público no card do rodízio */
+.rodizio-link {
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  margin: 12px 0;
+  word-break: break-all;
+}
+/* fileira de botões pequenos no rodapé de um card */
+.card-acoes {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+/* parágrafo de explicação embaixo do título de uma tela */
+.texto-apoio {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 18px;
+  max-width: 760px;
+}
+
+.aviso-entrega {
+  margin-top: 14px;
+  padding: 9px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  border: 1px solid rgba(255, 93, 105, 0.28);
+  color: var(--danger-color);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* stats antigo (usado no detalhe da instância e no rodízio) */
+.stats {
+  display: flex;
+  gap: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-default);
+  align-items: center;
+}
+.stat-num {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+/* --------------------------------------------------------- menu suspenso */
+.menu-alvo {
+  position: relative;
+  flex: none;
+}
+.menu-botao {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  display: grid;
+  place-items: center;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.menu-botao:hover,
+.menu-botao.aberto {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.menu-lista {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 190px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  z-index: 40;
+}
+.menu-lista button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.menu-lista button:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+/* --------------------------------------------------------------- tabelas */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th {
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-default);
+  vertical-align: middle;
+}
+tr:last-child td {
+  border-bottom: none;
+}
+.jid {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------------------- toggle */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 23px;
+  flex: none;
+}
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  inset: 0;
+  background: #22303c;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-pill);
+  transition: 0.2s;
+}
+.slider::before {
+  content: '';
+  position: absolute;
+  height: 15px;
+  width: 15px;
+  left: 3px;
+  top: 3px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+.toggle input:checked + .slider {
+  background: var(--green-soft-2);
+  border-color: var(--green-border);
+}
+.toggle input:checked + .slider::before {
+  transform: translateX(19px);
+  background: var(--green-primary);
+}
+.toggle input:disabled + .slider {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ----------------------------------------------------------------- modal */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 11, 0.75);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  padding: 20px;
+}
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 26px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.modal h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.modal p.hint {
+  color: var(--text-secondary);
+  margin: 0 0 18px;
+  font-size: 13px;
+}
+.qr-frame {
+  background: #fff;
+  padding: 14px;
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  margin-bottom: 16px;
+}
+.qr-frame img {
+  width: 100%;
+  max-width: 260px;
+  display: block;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+/* ------------------------------------------------------- campos de texto */
+.field {
+  margin-bottom: 16px;
+}
+.field label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.input,
+select.input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.input::placeholder {
+  color: var(--text-muted);
+}
+.input:focus {
+  outline: none;
+  border-color: rgba(0, 232, 131, 0.4);
+  box-shadow: 0 0 0 3px rgba(0, 232, 131, 0.06);
+}
+
+/* ------------------------------------------------------------------ abas */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.tab {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 11px 15px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-weight: 500;
+}
+.tab:hover {
+  color: var(--text-primary);
+}
+.tab.active {
+  color: var(--green-primary);
+  border-bottom-color: var(--green-primary);
+}
+
+/* ------------------------------------------------------------------ misc */
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+.error-box {
+  background: var(--danger-bg);
+  border: 1px solid rgba(255, 93, 105, 0.32);
+  color: #ffc2c6;
+  padding: 11px 15px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+.banner {
+  background: var(--danger-bg);
+  border: 1px solid rgba(255, 93, 105, 0.4);
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  margin-bottom: 22px;
+  font-weight: 600;
+  color: #ffc2c6;
+}
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin-bottom: 26px;
+}
+.kpi {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+}
+.kpi-num {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 3px;
+}
+.log-line {
+  display: flex;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: 13px;
+}
+.log-line .lvl {
+  flex: none;
+  width: 52px;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.log-line.info .lvl {
+  color: var(--info-color);
+}
+.log-line.warn .lvl {
+  color: var(--warning);
+}
+.log-line.error .lvl {
+  color: var(--danger-color);
+}
+.log-line .ts {
+  flex: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  width: 120px;
+}
+
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--border-light);
+}
+.linklike:hover {
+  text-decoration-color: var(--green-primary);
+}
+
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.bubble {
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  font-size: 14px;
+  max-width: 85%;
+  align-self: flex-start;
+}
+/* o que a IA respondeu fica do lado direito, como no próprio WhatsApp */
+.bubble.mine {
+  align-self: flex-end;
+  background: rgba(0, 232, 131, 0.07);
+  border-color: rgba(0, 232, 131, 0.2);
+}
+.bubble-time {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .form-adicionar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .form-adicionar .input {
+    max-width: none;
+  }
+  .busca {
+    max-width: none;
+  }
+}

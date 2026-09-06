@@ -89,7 +89,7 @@ export function Agents({ onBack }: { onBack: () => void }) {
       <ErrorBox message={error} />
 
       <div className="toolbar">
-        <div style={{ fontSize: 20, fontWeight: 700 }}>Agentes</div>
+        <h1 className="titulo-secao">Agentes</h1>
         <div className="spacer" />
         <button className="btn btn-primary" onClick={() => setEditing({ ...BLANK })}>
           + Novo agente
