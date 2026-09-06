@@ -52,10 +52,26 @@
   animation: fadeInLeft 0.5s ease-out both;
 }
 
-.login-marca-logo {
-  width: 240px;
-  height: auto;
+/**
+ * A marca = os mesmos PNGs da sidebar (marca-icone + marca-nome), nada
+ * redesenhado. Altura fixa e largura pelo aspecto: as duas artes mantêm a
+ * proporção original em qualquer tamanho de tela.
+ */
+.login-marca-lockup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.login-marca-lockup img {
   display: block;
+  height: 52px;
+  width: auto;
+}
+.login-marca-lockup .nome {
+  height: 30px;
+}
+
+.login-marca-logo {
   margin-bottom: 46px;
 }
 
@@ -141,10 +157,14 @@
 }
 
 .login-card-logo {
-  width: 200px;
-  height: auto;
-  display: block;
+  justify-content: center;
   margin: 0 auto 32px;
+}
+.login-card-logo img {
+  height: 42px;
+}
+.login-card-logo .nome {
+  height: 24px;
 }
 
 .login-titulo {
@@ -401,8 +421,13 @@
     padding: 30px 20px;
   }
   .login-card-logo {
-    width: 168px;
     margin-bottom: 24px;
+  }
+  .login-card-logo img {
+    height: 36px;
+  }
+  .login-card-logo .nome {
+    height: 21px;
   }
   .login-titulo {
     font-size: 24px;

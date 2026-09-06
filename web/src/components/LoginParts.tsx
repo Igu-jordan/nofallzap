@@ -52,11 +52,11 @@ export function BrandPanel() {
           desenhados dentro de nofallzap-background.svg — repetir em CSS por
           cima só sujava a arte original. */}
       <div className="login-marca-conteudo">
-        <img
-          className="login-marca-logo"
-          src="/assets/branding/nofallzap-logo.svg"
-          alt="NoFallZap"
-        />
+        {/* Os mesmos arquivos que a sidebar usa. */}
+        <div className="login-marca-lockup login-marca-logo">
+          <img src="/marca-icone.png" alt="" />
+          <img className="nome" src="/marca-nome.png" alt="NoFallZap" />
+        </div>
 
         <h1 className="login-headline">
           Mais controle

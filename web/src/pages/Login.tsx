@@ -44,10 +44,14 @@ export function Login({ onEntrou }: { onEntrou: (usuario: string) => void }) {
   return (
     <div className="login-tela">
       {/* A arte cobre a tela inteira, atrás das duas colunas: cortada no meio
-          ela viraria um bloco preto do lado do formulário. */}
+          ela viraria um bloco preto do lado do formulário.
+
+          "-limpo" é o SVG original com UM bloco a menos: o símbolo grande que
+          a arte trazia atrás do card. O arquivo original continua intacto ao
+          lado, byte a byte, caso queira voltar. */}
       <img
         className="login-fundo"
-        src="/assets/branding/nofallzap-background.svg"
+        src="/assets/branding/nofallzap-background-limpo.svg"
         alt=""
         aria-hidden="true"
       />
@@ -55,11 +59,11 @@ export function Login({ onEntrou }: { onEntrou: (usuario: string) => void }) {
 
       <section className="login-lado">
         <form className="login-card" onSubmit={(e) => void enviar(e)}>
-          <img
-            className="login-card-logo"
-            src="/assets/branding/nofallzap-logo.svg"
-            alt="NoFallZap"
-          />
+          {/* Os mesmos arquivos que a sidebar usa. */}
+          <div className="login-marca-lockup login-card-logo">
+            <img src="/marca-icone.png" alt="" />
+            <img className="nome" src="/marca-nome.png" alt="NoFallZap" />
+          </div>
 
           <h2 className="login-titulo">Bem-vindo de volta</h2>
           <p className="login-titulo-sub">
