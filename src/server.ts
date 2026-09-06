@@ -32,8 +32,15 @@ const app = Fastify({
 await app.register(cors, { origin: true, credentials: true });
 
 // ------------------------------------------------------------------- rotas
-// A porta vem antes das rotas: assim rota nova nasce protegida por padrao.
-await app.register(authGuard);
+/**
+ * A porta vem antes das rotas: assim rota nova nasce protegida por padrao.
+ *
+ * Chamada DIRETO, nao com app.register: o register cria escopo proprio no
+ * Fastify e um hook criado la dentro so vale para as rotas daquele escopo.
+ * Registrado como plugin, este guarda nao protegia nada — a tela pedia login
+ * e /api/instances respondia 200 para qualquer um.
+ */
+await authGuard(app);
 await app.register(authRoutes);
 await app.register(webhookRoutes);
 await app.register(instanceRoutes);

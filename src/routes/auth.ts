@@ -50,6 +50,10 @@ export function usuarioDoPedido(req: FastifyRequest): string | null {
  * A porta fica no onRequest, antes de qualquer handler, para nao depender de
  * cada rota lembrar de se proteger — rota nova nasce protegida por padrao,
  * que e o jeito certo de errar.
+ *
+ * ATENCAO: chame authGuard(app) direto, NUNCA app.register(authGuard). O
+ * register cria um escopo novo no Fastify e o hook morre dentro dele — o
+ * painel pediria login e a API responderia 200 para qualquer um.
  */
 export async function authGuard(app: FastifyInstance) {
   app.addHook('onRequest', async (req, reply) => {
