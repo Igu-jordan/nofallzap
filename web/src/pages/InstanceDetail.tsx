@@ -73,6 +73,35 @@ export function InstanceDetail({ id, onBack }: { id: string; onBack: () => void 
 
       <ErrorBox message={error} />
 
+      {/*
+        O numero conecta, aparece verde, e o WhatsApp recusa tudo que ele
+        manda. Sem este aviso o painel seguiria gerando resposta com IA e
+        jogando no vazio — custo em silencio.
+      */}
+      {data.deliveryBlockedAt && (
+        <div
+          className="banner"
+          style={{ borderColor: '#4b2320', background: '#2a1614', marginBottom: 16 }}
+        >
+          <strong>Este número não está entregando mensagens.</strong> O WhatsApp recusou 3 envios
+          seguidos, então a IA e a maturação foram desligadas automaticamente aqui para não gastar
+          à toa. Ele continua conectado e recebendo — o problema é só no envio pelo painel.
+          <div style={{ marginTop: 10 }}>
+            <button
+              className="btn btn-sm"
+              onClick={() =>
+                void api
+                  .clearDeliveryBlock(data.id)
+                  .then(load)
+                  .catch((e) => setError((e as Error).message))
+              }
+            >
+              Já resolvi, reativar a IA
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="tabs">
         {TABS.map((t) => (
           <button

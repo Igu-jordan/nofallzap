@@ -78,6 +78,15 @@ model Instance {
   qrUpdatedAt  DateTime? @map("qr_updated_at")
 
   reconnectAttempts Int       @default(0) @map("reconnect_attempts")
+
+  /// ENTREGA RECUSADA — o numero aparece conectado e o WhatsApp devolve
+  /// status ERROR em tudo que ele manda. Conta apenas as mensagens que o
+  /// PAINEL enviou: o que sai do celular entrega normal e mascararia o
+  /// problema. Ao bater no limite o numero e desligado sozinho, para nao
+  /// continuar gerando resposta com IA (que voce paga) e jogando no vazio.
+  deliveryFailures  Int       @default(0) @map("delivery_failures")
+  deliveryBlockedAt DateTime? @map("delivery_blocked_at")
+
   lastConnectedAt   DateTime? @map("last_connected_at")
   lastActivityAt    DateTime? @map("last_activity_at")
   createdAt         DateTime  @default(now()) @map("created_at")

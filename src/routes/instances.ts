@@ -6,6 +6,7 @@ import { syncGroups, backfillIncompleteGroups } from '../services/groupSync.js';
 import { invalidateInstanceCache } from './webhook.js';
 import * as evo from '../evolution/client.js';
 import { log } from '../lib/logger.js';
+import { logEvent } from '../services/eventLog.js';
 
 const createSchema = z.object({ name: z.string().min(2).max(60) });
 const patchSchema = z.object({
@@ -36,6 +37,7 @@ export async function instanceRoutes(app: FastifyInstance) {
         status: true,
         statusDetail: true,
         aiEnabled: true,
+        deliveryBlockedAt: true,
         lastConnectedAt: true,
         lastActivityAt: true,
         createdAt: true,
@@ -182,6 +184,38 @@ export async function instanceRoutes(app: FastifyInstance) {
       await service.setStatus(id, 'disconnected', (err as Error).message);
       return reply.code(502).send({ error: (err as Error).message });
     }
+  });
+
+  /**
+   * REATIVAR — tira o numero do bloqueio por entrega recusada.
+   *
+   * Religa a IA (que o bloqueio desligou) e zera a contagem. A MATURACAO
+   * continua desligada de proposito: e a operacao mais arriscada, entao
+   * quem decide religar ela e voce, na tela de Maturacao.
+   */
+  app.post('/api/instances/:id/clear-delivery-block', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const instance = await prisma.instance.findFirst({ where: { id, deletedAt: null } });
+    if (!instance) return reply.code(404).send({ error: 'instancia nao encontrada' });
+
+    const updated = await prisma.instance.update({
+      where: { id },
+      data: {
+        deliveryFailures: 0,
+        deliveryBlockedAt: null,
+        aiEnabled: true,
+        statusDetail: null,
+      },
+    });
+
+    await logEvent({
+      instanceId: id,
+      level: 'info',
+      event: 'delivery_block_cleared',
+      message: 'bloqueio por entrega recusada removido; IA religada (maturacao segue desligada)',
+    });
+
+    return updated;
   });
 
   /**

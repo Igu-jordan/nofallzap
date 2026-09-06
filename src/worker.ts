@@ -2,7 +2,7 @@ import { Worker, type Job } from 'bullmq';
 import { env } from './config/env.js';
 import { log } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
-import { createQueueConnection, publishRealtime } from './lib/redis.js';
+import { createQueueConnection, publishRealtime, redis } from './lib/redis.js';
 import {
   QUEUE_INGEST,
   QUEUE_DECIDE,
@@ -313,6 +313,11 @@ async function handleGroupsUpsert(job: IngestJob) {
  * evento o painel jura que a mensagem foi enviada. Registrar o erro e a
  * diferenca entre "o painel esta mentindo" e "o numero esta com problema".
  */
+/// Entregas recusadas seguidas ate o numero sair do ar sozinho.
+const DELIVERY_FAILURE_LIMIT = 3;
+/// Status que provam que a mensagem saiu de verdade.
+const DELIVERED = new Set(['SERVER_ACK', 'DELIVERY_ACK', 'READ', 'PLAYED']);
+
 async function handleMessageUpdate(job: IngestJob) {
   const raw = job.data as
     | { status?: string; keyId?: string; key?: { id?: string; remoteJid?: string } }
@@ -322,6 +327,22 @@ async function handleMessageUpdate(job: IngestJob) {
 
   for (const u of list) {
     const status = String(u?.status ?? '').toUpperCase();
+    const keyId = u?.key?.id ?? u?.keyId;
+    if (!keyId) continue;
+
+    // So contam as mensagens que o PAINEL mandou. O que a pessoa digita no
+    // celular entrega normal e zeraria o contador, escondendo o problema.
+    const ours = await redis.exists(`sent:${keyId}`).catch(() => 0);
+    if (!ours) continue;
+
+    if (DELIVERED.has(status)) {
+      await prisma.instance.updateMany({
+        where: { id: job.instanceId, deliveryFailures: { gt: 0 } },
+        data: { deliveryFailures: 0 },
+      });
+      continue;
+    }
+
     if (status !== 'ERROR') continue;
 
     const jid = u?.key?.remoteJid ?? '';
@@ -330,10 +351,45 @@ async function handleMessageUpdate(job: IngestJob) {
       instanceId: job.instanceId,
       level: 'error',
       event: 'delivery_failed',
-      message: `O WhatsApp recusou a entrega${jid ? ` para ${jid.split('@')[0]}` : ''}. Numero provavelmente limitado.`,
+      message: `O WhatsApp recusou a entrega${jid ? ` para ${jid.split('@')[0]}` : ''}.`,
       broadcast: true,
     });
-    log.warn('delivery.rejected', { instanceId: job.instanceId, jid, keyId: u?.key?.id ?? u?.keyId });
+    log.warn('delivery.rejected', { instanceId: job.instanceId, jid, keyId });
+
+    const counted = await prisma.instance.update({
+      where: { id: job.instanceId },
+      data: { deliveryFailures: { increment: 1 } },
+      select: { name: true, deliveryFailures: true, deliveryBlockedAt: true },
+    });
+
+    if (counted.deliveryBlockedAt) continue; // ja esta fora do ar
+    if (counted.deliveryFailures < DELIVERY_FAILURE_LIMIT) continue;
+
+    // TIRA O NUMERO DO AR. Continuar gerando resposta com IA para um numero
+    // que nao entrega custa dinheiro em silencio — foi exatamente o que
+    // aconteceu antes de este alarme existir.
+    await prisma.instance.update({
+      where: { id: job.instanceId },
+      data: {
+        deliveryBlockedAt: new Date(),
+        aiEnabled: false,
+        warmupEnabled: false,
+        statusDetail: 'Conectado, mas o WhatsApp esta recusando as entregas.',
+      },
+    });
+
+    await logEvent({
+      instanceId: job.instanceId,
+      level: 'error',
+      event: 'number_auto_paused',
+      message: `${counted.deliveryFailures} entregas recusadas seguidas: IA e maturacao desligadas automaticamente neste numero`,
+      broadcast: true,
+    });
+
+    await publishRealtime('instance:deliveryBlocked', {
+      instanceId: job.instanceId,
+      name: counted.name,
+    });
   }
 }
 

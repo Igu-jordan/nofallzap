@@ -108,6 +108,20 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
                 <StatusBadge status={i.status} />
               </div>
 
+              {/* "Conectado" sozinho engana quando o envio esta sendo recusado */}
+              {i.deliveryBlockedAt && (
+                <div
+                  style={{
+                    color: 'var(--danger)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    marginTop: 8,
+                  }}
+                >
+                  não está entregando — IA desligada automaticamente
+                </div>
+              )}
+
               <div className="stats">
                 <div>
                   <div className="stat-num">{i.groupsCount}</div>

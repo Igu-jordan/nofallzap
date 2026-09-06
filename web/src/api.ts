@@ -8,6 +8,9 @@ export interface InstanceSummary {
   status: InstanceStatus;
   statusDetail: string | null;
   aiEnabled: boolean;
+  /// preenchido quando o WhatsApp recusou entregas seguidas e o painel
+  /// tirou o número do ar sozinho
+  deliveryBlockedAt: string | null;
   lastConnectedAt: string | null;
   lastActivityAt: string | null;
   createdAt: string;
@@ -215,6 +218,8 @@ export const api = {
     ),
   disconnect: (id: string) =>
     call<unknown>(`/api/instances/${id}/disconnect`, { method: 'POST' }),
+  clearDeliveryBlock: (id: string) =>
+    call<InstanceDetail>(`/api/instances/${id}/clear-delivery-block`, { method: 'POST' }),
   resetSession: (id: string) =>
     call<{ ok: boolean; needsQr: boolean; message: string }>(
       `/api/instances/${id}/reset-session`,

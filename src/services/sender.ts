@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { redis } from '../lib/redis.js';
 import { env } from '../config/env.js';
 import { log } from '../lib/logger.js';
 import { logEvent, bumpMetricBoth } from './eventLog.js';
@@ -121,6 +122,15 @@ export async function processSend(job: SendJob) {
     await sleep(delay);
 
     const res = (await evo.sendText(instance.evoName, remoteJid, text, 0)) as SendResponse;
+
+    // MARCA QUE ESTA MENSAGEM E NOSSA.
+    // O veredito de entrega chega depois, pelo MESSAGES_UPDATE, e vale para
+    // tudo que o numero manda — inclusive o que a PESSOA digita no celular.
+    // Sem esta marca, uma mensagem entregue pelo celular zeraria o contador
+    // de falhas e esconderia justamente o problema que ele existe para pegar.
+    if (res?.key?.id) {
+      await redis.setex(`sent:${res.key.id}`, 900, instanceId).catch(() => undefined);
+    }
 
     if (kind === 'group' && job.groupId) {
       // Grava a mensagem enviada JA marcada como IA, usando a chave devolvida
