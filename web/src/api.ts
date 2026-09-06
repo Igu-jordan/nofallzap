@@ -215,6 +215,11 @@ export const api = {
     ),
   disconnect: (id: string) =>
     call<unknown>(`/api/instances/${id}/disconnect`, { method: 'POST' }),
+  resetSession: (id: string) =>
+    call<{ ok: boolean; needsQr: boolean; message: string }>(
+      `/api/instances/${id}/reset-session`,
+      { method: 'POST' },
+    ),
   deleteInstance: (id: string, confirmName: string) =>
     call<{ ok: boolean }>(`/api/instances/${id}`, {
       method: 'DELETE',

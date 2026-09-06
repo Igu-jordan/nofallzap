@@ -625,6 +625,36 @@ function Connection({
             {busy === 'disconnect' ? 'Desconectando…' : 'Desconectar'}
           </button>
         </div>
+
+        {/*
+          Reconectar reautentica NA MESMA instancia da Evolution. Quando o que
+          quebrou foi o estado de sessao guardado la (tipico depois de um 401),
+          escanear por cima nao limpa nada: o numero volta a aparecer como
+          conectado e todo envio continua sendo recusado.
+        */}
+        <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>Recriar sessão</div>
+          <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 12 }}>
+            Use quando o número <strong>aparece conectado mas não entrega</strong> — mensagem sai do
+            painel e não chega em ninguém. Apaga a instância na Evolution e cria outra do zero, em
+            vez de reautenticar por cima da sessão quebrada, que é o que o Reconectar faz.{' '}
+            <strong>Grupos, agente, histórico e maturação continuam.</strong> Você só escaneia o QR
+            de novo.
+          </div>
+          <button
+            className="btn"
+            disabled={busy !== null}
+            onClick={() =>
+              void run('reset', async () => {
+                const res = await api.resetSession(data.id);
+                onOpenQr();
+                return res;
+              })
+            }
+          >
+            {busy === 'reset' ? 'Recriando…' : 'Recriar sessão e gerar QR novo'}
+          </button>
+        </div>
       </div>
 
       {/* Desconectar e Excluir NUNCA sao a mesma operacao. */}

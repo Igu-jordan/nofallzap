@@ -170,6 +170,69 @@ export async function syncProfile(instanceId: string) {
   }
 }
 
+/**
+ * RECRIAR SESSAO — joga fora a instancia da Evolution e cria outra do zero,
+ * mantendo a linha do painel (grupos, agente, historico, maturacao).
+ *
+ * POR QUE ISTO EXISTE, e por que "Desconectar + reconectar" nao resolve:
+ * o logout encerra a sessao mas a instancia da Evolution continua la, com o
+ * material de sessao guardado. O "Reconectar" faz restart e pede um QR novo
+ * NA MESMA instancia — ou seja, voce reautentica em cima do estado antigo.
+ * Quando o que quebrou foi justamente esse estado (tipico depois de um 401),
+ * o numero volta a aparecer como conectado e MESMO ASSIM todo envio falha,
+ * com o WhatsApp devolvendo status ERROR. Foi exatamente o que aconteceu
+ * aqui: uma mensagem entregue, 401 dois segundos depois, e 3 de 3 envios
+ * recusados apos o reescaneamento.
+ *
+ * Aqui a instancia antiga e apagada de verdade e nasce outra com nome novo,
+ * entao nao sobra nada do estado anterior para herdar.
+ */
+export async function resetSession(instanceId: string) {
+  const instance = await prisma.instance.findUniqueOrThrow({ where: { id: instanceId } });
+  const oldName = instance.evoName;
+
+  // Derruba o dispositivo vinculado antigo e apaga a instancia. Falha aqui
+  // nao e fatal: se ela ja nao existe na Evolution, seguimos para a criacao.
+  await evo.logoutInstance(oldName).catch((e) =>
+    log.info('resetSession.logoutSkipped', { oldName, error: (e as Error).message }),
+  );
+  await evo.deleteInstance(oldName).catch((e) =>
+    log.info('resetSession.deleteSkipped', { oldName, error: (e as Error).message }),
+  );
+
+  const evoName = slugifyInstanceName(instance.name);
+  const res = await evo.createInstance(evoName);
+  const token = typeof res.hash === 'string' ? res.hash : (res.hash?.apikey ?? null);
+  const qr = res.qrcode?.base64 ?? null;
+
+  await prisma.instance.update({
+    where: { id: instanceId },
+    data: {
+      evoName,
+      evoToken: token,
+      status: 'awaiting_qr',
+      statusDetail: 'Sessao recriada. Escaneie o QR Code.',
+      lastQrBase64: qr,
+      qrUpdatedAt: qr ? new Date() : null,
+      reconnectAttempts: 0,
+    },
+  });
+
+  await logEvent({
+    instanceId,
+    level: 'info',
+    event: 'session_reset',
+    message: `sessao recriada: ${oldName} -> ${evoName}`,
+    broadcast: true,
+  });
+
+  if (qr) await publishRealtime('instance:qr', { instanceId, base64: qr });
+
+  // sem QR na resposta da criacao, pede um explicitamente
+  if (!qr) return refreshQr(instanceId);
+  return { base64: qr, pairingCode: null };
+}
+
 /** Desconecta o WhatsApp mas mantem TODAS as configuracoes. */
 export async function disconnect(instanceId: string) {
   const instance = await prisma.instance.findUniqueOrThrow({ where: { id: instanceId } });

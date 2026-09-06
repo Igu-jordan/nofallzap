@@ -184,6 +184,31 @@ export async function instanceRoutes(app: FastifyInstance) {
     }
   });
 
+  /**
+   * RECRIAR SESSAO — para quando o numero aparece conectado mas nao entrega.
+   * Diferente de "Reconectar": aquele remenda a instancia existente, este
+   * apaga e cria outra, mantendo grupos, agente e historico do painel.
+   */
+  app.post('/api/instances/:id/reset-session', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const instance = await prisma.instance.findFirst({ where: { id, deletedAt: null } });
+    if (!instance) return reply.code(404).send({ error: 'instancia nao encontrada' });
+
+    try {
+      const qr = await service.resetSession(id);
+      invalidateInstanceCache(instance.evoName);
+      return {
+        ok: true,
+        needsQr: true,
+        message: 'Sessao recriada do zero. Escaneie o QR Code para reconectar.',
+        ...qr,
+      };
+    } catch (err) {
+      await service.setStatus(id, 'error', (err as Error).message);
+      return reply.code(502).send({ error: (err as Error).message });
+    }
+  });
+
   /** DESCONECTAR — mantem configuracoes. Diferente de excluir. */
   app.post('/api/instances/:id/disconnect', async (req, reply) => {
     const { id } = req.params as { id: string };
