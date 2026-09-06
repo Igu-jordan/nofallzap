@@ -839,3 +839,38 @@ select.input {
     max-width: none;
   }
 }
+
+/* ------------------------------------------------ histórico da conversa */
+.modal-largo {
+  max-width: 620px;
+}
+.historico-topo {
+  margin-bottom: 12px;
+}
+.historico-nome {
+  font-weight: 700;
+  font-size: 16px;
+}
+.historico-resumo {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+.bubble-texto {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* botões de ação no fim de uma linha de tabela */
+.card-acoes-linha {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.card-acoes-linha .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}

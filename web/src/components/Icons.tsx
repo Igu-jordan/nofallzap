@@ -145,3 +145,11 @@ export const IconeMais = (p: Props) => (
     <path d="M12 5v14M5 12h14" />
   </Svg>
 );
+
+export const IconeHistorico = (p: Props) => (
+  <Svg {...p}>
+    <path d="M3.5 9.5A9 9 0 1 1 3 12" />
+    <path d="M3 4.5v5h5" />
+    <path d="M12 7.5V12l3.2 1.9" />
+  </Svg>
+);
