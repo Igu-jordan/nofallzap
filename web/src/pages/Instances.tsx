@@ -18,6 +18,7 @@ import {
   IconeDetalhe,
   IconeGrupos,
   IconeIa,
+  IconeMais,
   IconeQr,
   IconeRelogio,
 } from '../components/Icons';
@@ -29,9 +30,9 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
   const [items, setItems] = useState<InstanceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
   const [qrFor, setQrFor] = useState<{ id: string; name: string } | null>(null);
+  /// modal de "Adicionar WhatsApp": pergunta o nome e ja abre o QR
+  const [adicionando, setAdicionando] = useState(false);
   /// filtro só de tela: mexe no que já foi carregado, não chama a API
   const [busca, setBusca] = useState('');
 
@@ -72,20 +73,18 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
     };
   }, [load]);
 
-  async function create() {
-    if (newName.trim().length < 2) return;
-    setCreating(true);
-    setError(null);
-    try {
-      const instance = await api.createInstance(newName.trim());
-      setNewName('');
-      await load();
-      setQrFor({ id: instance.id, name: instance.name });
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setCreating(false);
-    }
+  /**
+   * Cria a instancia e emenda direto no QR Code.
+   *
+   * Quem clica em "Adicionar WhatsApp" quer conectar um numero, nao cadastrar
+   * um nome — por isso o nome e perguntado no modal e, assim que a instancia
+   * nasce, o QR aparece sem mais nenhum clique.
+   */
+  async function criar(nome: string) {
+    const instance = await api.createInstance(nome);
+    setAdicionando(false);
+    await load();
+    setQrFor({ id: instance.id, name: instance.name });
   }
 
   const conectados = items.filter((i) => i.status === 'connected').length;
@@ -132,34 +131,19 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
 
       <ErrorBox message={error} />
 
-      <div className="form-adicionar">
-        <input
-          className="input"
-          placeholder="Nome interno (ex: WhatsApp Suporte)"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void create()}
-        />
-        <button
-          className="btn btn-primary"
-          onClick={() => void create()}
-          disabled={creating || newName.trim().length < 2}
-        >
-          {creating ? 'Criando…' : '+ Adicionar WhatsApp'}
+      <div className="linha-ferramentas">
+        <button className="btn btn-primary btn-grande" onClick={() => setAdicionando(true)}>
+          <IconeMais size={18} />
+          Adicionar WhatsApp
         </button>
+        {items.length > 0 && <SearchBar valor={busca} onChange={setBusca} />}
       </div>
-
-      {items.length > 0 && (
-        <div className="linha-ferramentas">
-          <SearchBar valor={busca} onChange={setBusca} />
-        </div>
-      )}
 
       {items.length === 0 ? (
         <div className="empty">
           Nenhum WhatsApp conectado ainda.
           <br />
-          Dê um nome interno acima e clique em Adicionar.
+          Clique em Adicionar WhatsApp para conectar o primeiro.
         </div>
       ) : visiveis.length === 0 ? (
         <div className="empty">Nenhum número bate com “{busca}”.</div>
@@ -174,6 +158,10 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
             />
           ))}
         </div>
+      )}
+
+      {adicionando && (
+        <NovoNumeroModal onFechar={() => setAdicionando(false)} onCriar={criar} />
       )}
 
       {qrFor && (
@@ -300,6 +288,77 @@ function CardInstancia({
             </button>
           )
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Adicionar WhatsApp": pergunta so o nome interno.
+ *
+ * O erro fica dentro do modal de proposito. Se subisse para a tela de tras,
+ * quem digitou um nome repetido veria o modal continuar aberto sem explicacao
+ * nenhuma, com a mensagem escondida atras dele.
+ */
+function NovoNumeroModal({
+  onFechar,
+  onCriar,
+}: {
+  onFechar: () => void;
+  onCriar: (nome: string) => Promise<void>;
+}) {
+  const [nome, setNome] = useState('');
+  const [criando, setCriando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const valido = nome.trim().length >= 2;
+
+  async function confirmar() {
+    if (!valido || criando) return;
+    setCriando(true);
+    setErro(null);
+    try {
+      await onCriar(nome.trim());
+    } catch (e) {
+      setErro((e as Error).message);
+      setCriando(false);
+    }
+  }
+
+  return (
+    <div className="overlay" onClick={onFechar}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2>Adicionar WhatsApp</h2>
+        <p className="hint">
+          Dê um nome interno para reconhecer este número no painel. Em seguida aparece o QR Code
+          para conectar.
+        </p>
+
+        <ErrorBox message={erro} />
+
+        <div className="field">
+          <label htmlFor="novo-numero-nome">Nome interno</label>
+          <input
+            id="novo-numero-nome"
+            className="input"
+            autoFocus
+            placeholder="ex: WhatsApp Suporte"
+            value={nome}
+            disabled={criando}
+            onChange={(e) => setNome(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void confirmar()}
+          />
+          <div className="dica-campo">Só você vê este nome. O número vem do próprio WhatsApp.</div>
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn" onClick={onFechar} disabled={criando}>
+            Cancelar
+          </button>
+          <button className="btn btn-primary" onClick={() => void confirmar()} disabled={!valido || criando}>
+            {criando ? 'Criando…' : 'Criar e conectar'}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -139,3 +139,9 @@ export const IconeEscudo = (p: Props) => (
     <path d="m9 12 2.2 2.2L15.5 10" />
   </Svg>
 );
+
+export const IconeMais = (p: Props) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);

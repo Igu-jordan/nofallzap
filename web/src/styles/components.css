@@ -201,24 +201,22 @@
   flex: 1;
 }
 
-/* formulário de adicionar WhatsApp */
-.form-adicionar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 26px;
-}
-.form-adicionar .input {
-  height: 54px;
-  max-width: 340px;
-  border-radius: var(--radius);
-  padding: 0 18px;
-}
-.form-adicionar .btn {
+/* botão principal de uma tela — "Adicionar WhatsApp" */
+.btn-grande {
   height: 54px;
   padding: 0 22px;
   border-radius: var(--radius);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+}
+
+/* linha de ajuda embaixo de um campo */
+.dica-campo {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 6px;
 }
 
 /* ---------------------------------------------------------------- badges */
