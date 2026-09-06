@@ -20,6 +20,8 @@ export function Rotators({ onBack }: { onBack: () => void }) {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /// id do rodizio esperando confirmacao de apagar
+  const [apagando, setApagando] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -154,6 +156,33 @@ export function Rotators({ onBack }: { onBack: () => void }) {
                   <button className="btn btn-sm" onClick={() => void abrir(r.id)}>
                     Números
                   </button>
+                  {/* Dois cliques de proposito: apagar o rodizio mata o link que
+                      ja esta rodando no anuncio, e nao ha como desfazer. */}
+                  {apagando === r.id ? (
+                    <>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() =>
+                          void api
+                            .deleteRotator(r.id)
+                            .then(() => {
+                              setApagando(null);
+                              return load();
+                            })
+                            .catch((e) => setError((e as Error).message))
+                        }
+                      >
+                        Apagar mesmo
+                      </button>
+                      <button className="btn btn-sm" onClick={() => setApagando(null)}>
+                        Não
+                      </button>
+                    </>
+                  ) : (
+                    <button className="btn btn-sm btn-danger" onClick={() => setApagando(r.id)}>
+                      Apagar
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -175,6 +204,45 @@ export function Rotators({ onBack }: { onBack: () => void }) {
   );
 }
 
+/**
+ * Teto de leads do dia, editavel na propria linha.
+ *
+ * Antes so dava para definir o teto no momento de colar os numeros, e valia
+ * para a lista inteira. Na pratica o teto de um numero muda depois — o chip
+ * esquentou, ou comecou a recusar — e nao havia onde mexer.
+ */
+function CapInput({
+  valor,
+  onSalvar,
+}: {
+  valor: number;
+  onSalvar: (v: number) => Promise<unknown>;
+}) {
+  const [texto, setTexto] = useState(String(valor));
+
+  useEffect(() => setTexto(String(valor)), [valor]);
+
+  function salvar() {
+    const n = Math.max(0, Math.floor(Number(texto) || 0));
+    if (n === valor) return;
+    void onSalvar(n).catch(() => setTexto(String(valor)));
+  }
+
+  return (
+    <input
+      className="input"
+      type="number"
+      min={0}
+      style={{ width: 80, padding: '4px 6px' }}
+      title="0 = sem limite"
+      value={texto}
+      onChange={(e) => setTexto(e.target.value)}
+      onBlur={salvar}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+    />
+  );
+}
+
 function RotatorModal({
   data,
   onClose,
@@ -188,6 +256,7 @@ function RotatorModal({
   const [dailyCap, setDailyCap] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mensagem, setMensagem] = useState(data.message ?? '');
 
   async function adicionar() {
     if (!numbers.trim()) return;
@@ -255,6 +324,30 @@ function RotatorModal({
           </button>
         </div>
 
+        {/* A mensagem ja vai escrita na caixa do WhatsApp do lead. Serve para
+            saber de qual anuncio ele veio sem precisar perguntar. */}
+        <div className="field">
+          <label>Mensagem que já vai digitada pro lead (opcional)</label>
+          <textarea
+            className="input"
+            rows={2}
+            placeholder="Oi! Vim pelo anúncio e quero saber mais"
+            value={mensagem}
+            onChange={(e) => setMensagem(e.target.value)}
+            onBlur={() => {
+              const novo = mensagem.trim();
+              if (novo === (data.message ?? '')) return;
+              void api
+                .patchRotator(data.id, { message: novo || null })
+                .then(onChanged)
+                .catch((e) => setError((e as Error).message));
+            }}
+          />
+          <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
+            Sai da tela e salva sozinho. O lead ainda pode apagar antes de enviar.
+          </div>
+        </div>
+
         <div style={{ display: 'flex', gap: 16, marginBottom: 14, flexWrap: 'wrap' }}>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
             <span style={{ color: 'var(--muted)' }}>Ordem:</span>
@@ -297,8 +390,9 @@ function RotatorModal({
                 <tr>
                   <th style={{ width: 60 }}>Ativo</th>
                   <th>Número</th>
-                  <th style={{ width: 90 }}>Hoje</th>
-                  <th style={{ width: 90 }}>Total</th>
+                  <th style={{ width: 70 }}>Hoje</th>
+                  <th style={{ width: 110 }}>Teto/dia</th>
+                  <th style={{ width: 80 }}>Total</th>
                   <th>Situação</th>
                   <th style={{ width: 70 }} />
                 </tr>
@@ -321,11 +415,14 @@ function RotatorModal({
                       <div>+{d.phoneNumber}</div>
                       {d.label && <div className="card-sub">{d.label}</div>}
                     </td>
+                    <td>{d.clicksToday}</td>
                     <td>
-                      {d.clicksToday}
-                      {d.dailyCap > 0 && (
-                        <span style={{ color: 'var(--muted)' }}> / {d.dailyCap}</span>
-                      )}
+                      <CapInput
+                        valor={d.dailyCap}
+                        onSalvar={(v) =>
+                          api.patchDestination(d.id, { dailyCap: v }).then(onChanged)
+                        }
+                      />
                     </td>
                     <td>{d.clicksTotal}</td>
                     <td style={{ fontSize: 13 }}>
