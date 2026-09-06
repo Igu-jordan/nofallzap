@@ -48,9 +48,13 @@ export default function App() {
   return (
     <>
       <header className="topbar">
-        <div className="brand">
-          No<span>Fall</span>Zap
-        </div>
+        {/* Clicar na marca volta para a lista de instancias — e o que todo
+            mundo tenta fazer sem pensar. O alt guarda o nome para quando a
+            imagem nao carregar. */}
+        <a className="brand" href="#/" aria-label="NoFallZap — início">
+          <img className="brand-icone" src="/marca-icone.png" alt="" />
+          <img className="brand-nome" src="/marca-nome.png" alt="NoFallZap" />
+        </a>
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>Painel multi-instância</span>
         <button
           className="btn btn-sm"

@@ -40,8 +40,16 @@ a { color: var(--info); }
   z-index: 20;
   flex-wrap: wrap;
 }
-.brand { font-weight: 700; font-size: 16px; letter-spacing: -0.2px; }
-.brand span { color: var(--accent); }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.brand-icone { height: 30px; width: 30px; display: block; }
+/* altura fixa, largura pelo aspecto — a arte tem 300x64 */
+.brand-nome { height: 21px; width: auto; display: block; }
 .spacer { flex: 1; }
 .container { max-width: 1240px; margin: 0 auto; padding: 24px; }
 
