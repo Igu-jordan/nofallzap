@@ -142,7 +142,19 @@ export function Rotators({ onBack }: { onBack: () => void }) {
                   <div className="stat-num">{r.clicksTotal}</div>
                   <div className="stat-label">no total</div>
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+              </div>
+
+              {/* Botoes em linha propria: com o "Apagar" eles nao cabiam mais
+                  ao lado dos numeros e quebravam palavra no meio. */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 6,
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  marginTop: 10,
+                }}
+              >
                   <button
                     className="btn btn-sm"
                     onClick={() =>
@@ -183,7 +195,6 @@ export function Rotators({ onBack }: { onBack: () => void }) {
                       Apagar
                     </button>
                   )}
-                </div>
               </div>
             </div>
           ))}
