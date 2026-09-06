@@ -91,21 +91,17 @@ a {
   text-decoration: none;
   padding: 0 6px;
 }
-.sidebar-marca img {
+.sidebar-marca .marca-icone {
   display: block;
   width: 40px;
   height: 40px;
   flex: none;
 }
-.marca-nome {
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  line-height: 1.1;
-}
-.marca-nome span {
-  color: var(--green-primary);
+/* altura fixa, largura pelo aspecto — a arte tem 300x64 */
+.sidebar-marca .marca-nome {
+  display: block;
+  height: 22px;
+  width: auto;
 }
 .marca-sub {
   font-size: 13px;
@@ -243,50 +239,31 @@ a {
 }
 
 /* ------------------------------------------------- fundo decorativo */
-/* Curvas verdes bem apagadas no rodapé da página. É CSS puro: nada de
-   imagem pesada, e nada captura clique. */
+/**
+ * A arte de fundo do NoFallZap: ondas verdes e o símbolo da marca.
+ *
+ * É uma camada fixa atrás de tudo, com `cover` — a imagem preenche a tela
+ * inteira mantendo a proporção, então ela corta nas laterais em telas
+ * estreitas mas nunca estica nem deforma. `center bottom` mantém as ondas e
+ * o símbolo, que são a parte que importa, sempre visíveis embaixo.
+ *
+ * 27 KB em WebP: pesa menos que as formas em CSS que estavam aqui antes.
+ */
 .fundo-decorativo {
   position: fixed;
   inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-.fundo-decorativo span {
-  position: absolute;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(0, 232, 131, 0.12), rgba(0, 100, 70, 0.02));
-  opacity: 0.4;
-  pointer-events: none;
-}
-.fundo-decorativo .b1 {
-  width: 620px;
-  height: 620px;
-  right: -180px;
-  bottom: -300px;
-}
-.fundo-decorativo .b2 {
-  width: 420px;
-  height: 420px;
-  right: 120px;
-  bottom: -260px;
-  opacity: 0.25;
-}
-.fundo-decorativo .b3 {
-  width: 320px;
-  height: 320px;
-  left: calc(var(--sidebar-w) + 40px);
-  bottom: -220px;
-  opacity: 0.18;
-}
-
-/* marca d'água: o símbolo da marca no canto inferior direito */
-.marca-dagua {
-  position: fixed;
-  right: 20px;
-  bottom: 0;
-  width: 300px;
-  opacity: 0.1;
+  background-color: var(--bg-main);
+  /* Um véu escuro por cima da arte. Sem ele as ondas verdes brigam com o
+     conteúdo; com ele a arte continua visível e o texto continua legível. */
+  background-image: linear-gradient(
+      to bottom,
+      rgba(8, 13, 18, 0.35),
+      rgba(8, 13, 18, 0.62)
+    ),
+    url('/assets/branding/nofallzap-fundo.webp');
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
   pointer-events: none;
   z-index: 0;
 }

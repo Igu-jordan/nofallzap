@@ -56,19 +56,8 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {/* Curvas verdes e o símbolo da marca. Puramente decorativo: fica atrás
-          de tudo e não captura clique. */}
-      <div className="fundo-decorativo" aria-hidden="true">
-        <span className="b1" />
-        <span className="b2" />
-        <span className="b3" />
-      </div>
-      <img
-        className="marca-dagua"
-        src="/assets/branding/nofallzap-symbol.svg"
-        alt=""
-        aria-hidden="true"
-      />
+      {/* Arte de fundo da marca. Fica atrás de tudo e não captura clique. */}
+      <div className="fundo-decorativo" aria-hidden="true" />
 
       <Sidebar rota={route} aberta={menuAberto} onNavegar={navegar} />
       <div

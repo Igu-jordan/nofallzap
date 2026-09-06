@@ -45,3 +45,14 @@ print('marca gerada em', OUT)
 #   a = np.array(Image.open(LOGO).convert('RGB')).astype(int)
 #   mask = a.max(axis=2) > 40
 #   perfil = mask.sum(axis=1)          # faixa vazia separa icone e nome
+
+# --------------------------------------------------------------- fundo
+# A arte de fundo do painel. Vira WebP a 1920 de largura: cobre monitor
+# grande e fica em torno de 27 KB, menos que as formas em CSS que existiam
+# antes no lugar dela.
+FUNDO = 'assets/marca/nofallzap-fundo-original.png'
+fundo = Image.open(FUNDO).convert('RGB')
+largura = 1920
+fundo = fundo.resize((largura, round(fundo.height * largura / fundo.width)), Image.LANCZOS)
+fundo.save('web/public/assets/branding/nofallzap-fundo.webp', 'WEBP', quality=88, method=6)
+print('fundo gerado')

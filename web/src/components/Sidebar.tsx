@@ -50,21 +50,17 @@ export function Sidebar({
 }) {
   return (
     <aside className={`sidebar ${aberta ? 'aberta' : ''}`}>
-      {/* O símbolo vem do SVG oficial; o nome é texto de verdade. A logo
-          completa traz "PAINEL MULTI-INSTÂNCIA" desenhado tão pequeno que
-          numa sidebar de 280px vira borrão — em texto ele fica legível e
-          acompanha o tamanho da fonte do sistema. */}
+      {/* A marca em imagem, como estava antes: ícone + nome desenhado. O
+          subtítulo continua em texto para acompanhar a fonte do sistema. */}
       <a
         className="sidebar-marca"
         href="#/"
         onClick={() => onNavegar('')}
         aria-label="NoFallZap — início"
       >
-        <img src="/assets/branding/nofallzap-symbol.svg" alt="" />
+        <img className="marca-icone" src="/marca-icone.png" alt="" />
         <div className="marca-texto">
-          <div className="marca-nome">
-            NoFall<span>Zap</span>
-          </div>
+          <img className="marca-nome" src="/marca-nome.png" alt="NoFallZap" />
           <div className="marca-sub">Painel multi-instância</div>
         </div>
       </a>
