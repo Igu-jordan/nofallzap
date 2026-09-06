@@ -4,6 +4,7 @@ import {
   IconeCelular,
   IconeChama,
   IconeRodizio,
+  IconeSair,
 } from './Icons';
 
 /**
@@ -43,10 +44,15 @@ export function Sidebar({
   rota,
   aberta,
   onNavegar,
+  usuario,
+  onSair,
 }: {
   rota: string;
   aberta: boolean;
   onNavegar: (hash: string) => void;
+  /// quem está logado, vindo da sessão do servidor
+  usuario: string;
+  onSair: () => void;
 }) {
   return (
     <aside className={`sidebar ${aberta ? 'aberta' : ''}`}>
@@ -83,7 +89,23 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="sidebar-rodape">NoFallZap · painel multi-instância</div>
+      {/* Área do usuário: o nome é o da sessão de verdade, não um rótulo
+          escrito no código. */}
+      <div className="sidebar-rodape">
+        <div className="sidebar-usuario">
+          <span className="sidebar-avatar" aria-hidden="true">
+            {usuario.slice(0, 2).toUpperCase()}
+          </span>
+          <span className="sidebar-usuario-texto">
+            <span className="sidebar-usuario-nome">{usuario}</span>
+            <span className="sidebar-usuario-papel">Administrador</span>
+          </span>
+        </div>
+        <button className="sidebar-sair" onClick={onSair} title="Sair do painel">
+          <IconeSair size={18} />
+          <span className="rotulo">Sair</span>
+        </button>
+      </div>
     </aside>
   );
 }

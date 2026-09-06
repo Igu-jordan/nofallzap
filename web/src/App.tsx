@@ -6,8 +6,10 @@ import { InstanceDetail } from './pages/InstanceDetail';
 import { Agents } from './pages/Agents';
 import { Warmup } from './pages/Warmup';
 import { Rotators } from './pages/Rotators';
+import { Login } from './pages/Login';
 import { Sidebar } from './components/Sidebar';
 import { IconeMenu } from './components/Icons';
+import { resetSocket } from './socket';
 
 export default function App() {
   const [route, setRoute] = useState(() => window.location.hash.slice(1));
@@ -15,6 +17,13 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   /// só tem efeito no celular, onde a sidebar vira gaveta
   const [menuAberto, setMenuAberto] = useState(false);
+  /**
+   * null = ainda perguntando ao servidor quem está logado.
+   *
+   * Esse terceiro estado existe para a tela não piscar o login por um
+   * instante antes de descobrir que a sessão era válida.
+   */
+  const [usuario, setUsuario] = useState<string | null | undefined>(null);
 
   useEffect(() => {
     const handler = () => setRoute(window.location.hash.slice(1));
@@ -22,13 +31,34 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handler);
   }, []);
 
+  // Quem está logado. Enquanto não responde, a tela fica em branco.
   useEffect(() => {
+    api
+      .me()
+      .then((r) => setUsuario(r.usuario ?? undefined))
+      .catch(() => setUsuario(undefined));
+  }, []);
+
+  useEffect(() => {
+    if (!usuario) return;
     api
       .settings()
       .then((s) => setAiEnabled(s.aiGloballyEnabled))
       .catch(() => undefined);
     return on<{ enabled: boolean }>('system:ai', (p) => setAiEnabled(p.enabled));
-  }, []);
+  }, [usuario]);
+
+  async function sair() {
+    try {
+      await api.logout();
+    } finally {
+      // Derruba o socket junto: sem isso ele seguiria recebendo eventos com
+      // a sessão já encerrada, até o próximo F5.
+      resetSocket();
+      setUsuario(undefined);
+      window.location.hash = '';
+    }
+  }
 
   /**
    * BOTAO DE EMERGENCIA (nivel global).
@@ -54,12 +84,27 @@ export default function App() {
 
   const instanceId = route.startsWith('/instance/') ? route.replace('/instance/', '') : null;
 
+  if (usuario === null) return <div className="carregando-sessao" />;
+
+  if (usuario === undefined) {
+    return (
+      <Login
+        onEntrou={(u) => {
+          // O socket foi recusado enquanto não havia sessão; reconecta agora
+          // para a tela voltar a se atualizar sozinha.
+          resetSocket();
+          setUsuario(u);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="app-shell">
       {/* Arte de fundo da marca. Fica atrás de tudo e não captura clique. */}
       <div className="fundo-decorativo" aria-hidden="true" />
 
-      <Sidebar rota={route} aberta={menuAberto} onNavegar={navegar} />
+      <Sidebar rota={route} aberta={menuAberto} onNavegar={navegar} usuario={usuario} onSair={() => void sair()} />
       <div
         className={`sidebar-veu ${menuAberto ? 'visivel' : ''}`}
         onClick={() => setMenuAberto(false)}

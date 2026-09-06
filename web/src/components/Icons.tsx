@@ -153,3 +153,82 @@ export const IconeHistorico = (p: Props) => (
     <path d="M12 7.5V12l3.2 1.9" />
   </Svg>
 );
+
+export const IconeEmail = (p: Props) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="3" />
+    <path d="m3.5 7 7.6 5.3a1.6 1.6 0 0 0 1.8 0L20.5 7" />
+  </Svg>
+);
+
+export const IconeCadeado = (p: Props) => (
+  <Svg {...p}>
+    <rect x="4" y="10" width="16" height="11" rx="3" />
+    <path d="M8 10V7.5a4 4 0 0 1 8 0V10" />
+    <path d="M12 14.5v2.5" />
+  </Svg>
+);
+
+export const IconeOlho = (p: Props) => (
+  <Svg {...p}>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+    <circle cx="12" cy="12" r="3.2" />
+  </Svg>
+);
+
+export const IconeOlhoFechado = (p: Props) => (
+  <Svg {...p}>
+    <path d="M10.6 6.1A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3 3.7" />
+    <path d="M6.5 7.6A16.7 16.7 0 0 0 2.5 12s3.5 6 9.5 6a9.4 9.4 0 0 0 4-.86" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    <path d="m3 3 18 18" />
+  </Svg>
+);
+
+export const IconeSeta = (p: Props) => (
+  <Svg {...p}>
+    <path d="M4 12h15" />
+    <path d="m13 6 6 6-6 6" />
+  </Svg>
+);
+
+export const IconeGiro = (p: Props) => (
+  <Svg {...p}>
+    <path d="M21 12a9 9 0 1 1-6.2-8.55" />
+  </Svg>
+);
+
+export const IconeCheck = (p: Props) => (
+  <Svg {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7" />
+  </Svg>
+);
+
+export const IconeAlerta = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7.5V13M12 16.5h.01" />
+  </Svg>
+);
+
+export const IconeGrafico = (p: Props) => (
+  <Svg {...p}>
+    <path d="M3 21h18" />
+    <path d="M6 21V11M11 21V5M16 21v-7M21 21v-4" />
+  </Svg>
+);
+
+export const IconeSair = (p: Props) => (
+  <Svg {...p}>
+    <path d="M15 4h2.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H15" />
+    <path d="M10 8 6 12l4 4" />
+    <path d="M6 12h9" />
+  </Svg>
+);
+
+export const IconePessoa = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="12" cy="8" r="3.6" />
+    <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+  </Svg>
+);

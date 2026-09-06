@@ -4,6 +4,7 @@ import IORedis from 'ioredis';
 import { env } from '../config/env.js';
 import { RT_CHANNEL } from '../lib/redis.js';
 import { log } from '../lib/logger.js';
+import { lerCookie, lerToken } from '../lib/session.js';
 
 /**
  * O painel nao faz F5 para saber se conectou.
@@ -35,6 +36,17 @@ export function attachRealtime(httpServer: HttpServer) {
     } catch (err) {
       log.warn('realtime.badMessage', { error: (err as Error).message });
     }
+  });
+
+  /**
+   * O socket carrega os mesmos eventos das rotas — status, QR, atividade dos
+   * numeros. Sem esta porta, trancar /api nao adiantaria: bastaria abrir um
+   * socket para acompanhar tudo sem login.
+   */
+  io.use((socket, next) => {
+    if (lerToken(lerCookie(socket.handshake.headers.cookie))) return next();
+    log.warn('realtime.semSessao', { ip: socket.handshake.address });
+    next(new Error('nao autenticado'));
   });
 
   io.on('connection', (socket) => {

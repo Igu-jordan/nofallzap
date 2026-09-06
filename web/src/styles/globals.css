@@ -381,3 +381,99 @@ a {
     width: 100%;
   }
 }
+
+/* ------------------------------------------------------ sessão / usuário */
+/* Enquanto o servidor não diz quem está logado, a tela fica escura e vazia:
+   é melhor que piscar o login para quem já tinha sessão. */
+.carregando-sessao {
+  min-height: 100vh;
+  background: var(--bg-main);
+}
+
+.sidebar-usuario {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.sidebar-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green-primary);
+  background: var(--green-soft-2);
+  border: 1px solid var(--green-border);
+}
+.sidebar-usuario-nome {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-usuario-papel {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.sidebar-usuario-texto {
+  min-width: 0;
+}
+.sidebar-sair {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.sidebar-sair:hover {
+  background: var(--danger-bg);
+  border-color: rgba(255, 93, 105, 0.3);
+  color: var(--danger-color);
+}
+
+/* Na sidebar estreita some o texto e fica só o botão de sair. */
+@media (max-width: 992px) {
+  .sidebar-rodape {
+    display: block;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--border-default);
+  }
+  .sidebar-usuario-texto,
+  .sidebar-sair .rotulo {
+    display: none;
+  }
+  .sidebar-usuario {
+    justify-content: center;
+  }
+  .sidebar-sair {
+    justify-content: center;
+    padding: 9px 0;
+  }
+}
+@media (max-width: 768px) {
+  .sidebar-usuario-texto,
+  .sidebar-sair .rotulo {
+    display: block;
+  }
+  .sidebar-usuario {
+    justify-content: flex-start;
+  }
+  .sidebar-sair {
+    justify-content: flex-start;
+    padding: 9px 12px;
+  }
+}

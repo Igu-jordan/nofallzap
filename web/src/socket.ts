@@ -9,6 +9,20 @@ export function getSocket(): Socket {
   return socket;
 }
 
+/**
+ * Derruba o socket atual.
+ *
+ * Antes do login o servidor recusa a conexao por falta de sessao. Sem este
+ * reset, depois de entrar o painel ficaria com um socket morto na mao e a
+ * tela so atualizaria com F5.
+ */
+export function resetSocket() {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+}
+
 /** Assina um evento e devolve a funcao de limpeza (para usar no useEffect). */
 export function on<T = unknown>(event: string, handler: (payload: T) => void) {
   const s = getSocket();

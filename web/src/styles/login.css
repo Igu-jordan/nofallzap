@@ -1,0 +1,502 @@
+/**
+ * TELA DE LOGIN.
+ *
+ * Duas colunas: a esquerda é a vitrine da marca, a direita é o formulário.
+ * Abaixo de 900px a vitrine sai e sobra o que interessa — entrar.
+ *
+ * As cores saem dos mesmos tokens do resto do painel. Os poucos valores
+ * literais aqui são os da arte desta tela, que é mais escura que o painel.
+ */
+
+.login-tela {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  background: #061015;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ============================================ coluna da marca (esquerda) */
+.login-marca {
+  position: relative;
+  padding: 70px 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* a arte oficial, sem esticar: cover mantém a proporção */
+.login-fundo {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-onda-1,
+.login-onda-2 {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  animation: ambientGlow 10s ease-in-out infinite;
+}
+.login-onda-1 {
+  width: 800px;
+  height: 330px;
+  left: -220px;
+  bottom: -150px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 232, 131, 0.18),
+    rgba(0, 232, 131, 0.04) 55%,
+    transparent 75%
+  );
+  transform: rotate(12deg);
+}
+.login-onda-2 {
+  width: 520px;
+  height: 230px;
+  left: 120px;
+  bottom: -110px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 232, 131, 0.1),
+    rgba(0, 232, 131, 0.02) 60%,
+    transparent 78%
+  );
+  transform: rotate(-8deg);
+  animation-delay: 3s;
+}
+
+.login-pontos {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 1;
+  background-image: radial-gradient(circle, rgba(0, 232, 131, 0.6) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+.login-pontos-a {
+  top: 64px;
+  right: 90px;
+}
+.login-pontos-b {
+  bottom: 90px;
+  left: 60px;
+  opacity: 0.25;
+}
+
+.login-marca-dagua {
+  position: absolute;
+  right: 4%;
+  bottom: 5%;
+  width: 340px;
+  height: auto;
+  opacity: 0.08;
+  filter: saturate(0.8);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.login-marca-conteudo {
+  position: relative;
+  z-index: 2;
+  animation: fadeInLeft 0.5s ease-out both;
+}
+
+.login-marca-logo {
+  width: 240px;
+  height: auto;
+  display: block;
+  margin-bottom: 46px;
+}
+
+.login-headline {
+  font-size: clamp(42px, 4vw, 68px);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  color: var(--text-primary);
+  margin: 0;
+}
+.login-headline span {
+  color: var(--green-primary);
+  text-shadow: 0 0 28px rgba(0, 232, 131, 0.08);
+}
+
+.login-sub {
+  font-size: 18px;
+  line-height: 1.5;
+  max-width: 520px;
+  color: var(--text-secondary);
+  margin: 24px 0 0;
+}
+
+.login-features {
+  list-style: none;
+  padding: 0;
+  margin: 44px 0 0;
+}
+.login-feature {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.login-feature-icone {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--green-primary);
+  background: linear-gradient(135deg, rgba(0, 232, 131, 0.14), rgba(0, 232, 131, 0.05));
+  border: 1px solid rgba(0, 232, 131, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+.login-feature-titulo {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.login-feature-texto {
+  display: block;
+  font-size: 13px;
+  margin-top: 3px;
+  color: var(--text-secondary);
+}
+
+/* ======================================= coluna do formulário (direita) */
+.login-lado {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  position: relative;
+  z-index: 3;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 520px;
+  padding: 50px 48px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(7, 25, 33, 0.92), rgba(6, 19, 26, 0.88));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(92, 135, 155, 0.22);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  animation: cardEnter 0.45s ease-out both;
+}
+
+.login-card-logo {
+  width: 200px;
+  height: auto;
+  display: block;
+  margin: 0 auto 32px;
+}
+
+.login-titulo {
+  font-size: 30px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.login-titulo-sub {
+  max-width: 430px;
+  margin: 10px auto 30px;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.login-campo {
+  margin-bottom: 18px;
+}
+.login-campo label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+.login-campo-caixa {
+  position: relative;
+}
+.login-campo-icone {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8fa3b2;
+  pointer-events: none;
+  display: flex;
+}
+.login-campo input {
+  height: 56px;
+  width: 100%;
+  border-radius: 12px;
+  background: rgba(11, 27, 35, 0.85);
+  border: 1px solid rgba(113, 145, 164, 0.18);
+  color: var(--text-primary);
+  padding: 0 48px;
+  font-size: 15px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.login-campo input::placeholder {
+  color: #718492;
+}
+.login-campo input:focus {
+  border-color: rgba(0, 232, 131, 0.45);
+  box-shadow: 0 0 0 4px rgba(0, 232, 131, 0.06);
+  background: rgba(12, 30, 38, 0.95);
+  outline: none;
+}
+.login-campo input:disabled {
+  opacity: 0.6;
+}
+
+.login-olho {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0;
+  color: #94a7b5;
+  display: flex;
+  transition: color 0.18s ease;
+}
+.login-olho:hover {
+  color: var(--green-primary);
+}
+
+.login-linha-opcoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0 26px;
+  flex-wrap: wrap;
+}
+
+/* caixa de seleção desenhada: a do navegador não combina com nada aqui */
+.login-lembrar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.login-lembrar input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.login-caixinha {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+  background: rgba(11, 27, 35, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.login-caixinha svg {
+  width: 14px;
+  height: 14px;
+  color: #03110a;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.login-lembrar input:checked + .login-caixinha {
+  background: var(--green-primary);
+  border-color: var(--green-primary);
+}
+.login-lembrar input:checked + .login-caixinha svg {
+  opacity: 1;
+}
+.login-lembrar input:focus-visible + .login-caixinha {
+  box-shadow: 0 0 0 3px rgba(0, 232, 131, 0.15);
+}
+
+.login-botao {
+  height: 62px;
+  width: 100%;
+  border: none;
+  border-radius: 13px;
+  background: linear-gradient(90deg, #00e883, #10f1c1);
+  color: #03110a;
+  font-size: 16px;
+  font-weight: 750;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 12px 28px rgba(0, 232, 131, 0.16);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.login-botao:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+  box-shadow: 0 16px 32px rgba(0, 232, 131, 0.21);
+}
+.login-botao:active:not(:disabled) {
+  transform: translateY(0) scale(0.995);
+}
+.login-botao:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.girando {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.login-erro {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(255, 93, 105, 0.06);
+  border: 1px solid rgba(255, 93, 105, 0.18);
+  color: #ff7c86;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+.login-erro svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.login-rodape {
+  margin: 22px 0 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes ambientGlow {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.03);
+  }
+}
+
+/* ============================================================ telas menores */
+@media (max-width: 1200px) {
+  .login-marca {
+    padding: 56px 48px;
+  }
+  .login-marca-dagua {
+    width: 260px;
+  }
+}
+
+/* Abaixo de 900px a vitrine sai: numa tela pequena ela empurraria o
+   formulário para baixo da dobra, e quem abre o login quer entrar. */
+@media (max-width: 900px) {
+  .login-tela {
+    grid-template-columns: 1fr;
+  }
+  .login-marca {
+    display: none;
+  }
+  .login-lado {
+    padding: 40px 24px;
+  }
+  .login-card {
+    max-width: 520px;
+    margin: auto;
+    padding: 38px 28px;
+  }
+}
+
+@media (max-width: 600px) {
+  .login-lado {
+    padding: 20px;
+  }
+  .login-card {
+    border-radius: 18px;
+    padding: 30px 20px;
+  }
+  .login-card-logo {
+    width: 168px;
+    margin-bottom: 24px;
+  }
+  .login-titulo {
+    font-size: 24px;
+  }
+  .login-campo input {
+    height: 54px;
+  }
+  .login-botao {
+    height: 56px;
+  }
+}
+
+/* Quem pediu menos movimento no sistema recebe menos movimento. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

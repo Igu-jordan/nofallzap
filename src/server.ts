@@ -9,6 +9,7 @@ import { env } from './config/env.js';
 import { log } from './lib/logger.js';
 import { prisma } from './lib/prisma.js';
 import { attachRealtime } from './realtime/io.js';
+import { authGuard, authRoutes } from './routes/auth.js';
 import { webhookRoutes } from './routes/webhook.js';
 import { instanceRoutes } from './routes/instances.js';
 import { groupRoutes } from './routes/groups.js';
@@ -31,6 +32,9 @@ const app = Fastify({
 await app.register(cors, { origin: true, credentials: true });
 
 // ------------------------------------------------------------------- rotas
+// A porta vem antes das rotas: assim rota nova nasce protegida por padrao.
+await app.register(authGuard);
+await app.register(authRoutes);
 await app.register(webhookRoutes);
 await app.register(instanceRoutes);
 await app.register(groupRoutes);

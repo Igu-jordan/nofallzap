@@ -1,0 +1,78 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1920" y2="1080" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#061015"/>
+    <stop offset=".52" stop-color="#071219"/>
+    <stop offset="1" stop-color="#04130F"/>
+  </linearGradient>
+  <radialGradient id="glowA" cx="0" cy="0" r="1" gradientTransform="translate(1750 80) rotate(140) scale(650 430)">
+    <stop stop-color="#00E883" stop-opacity=".14"/>
+    <stop offset="1" stop-color="#00E883" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="glowB" cx="0" cy="0" r="1" gradientTransform="translate(150 1040) rotate(-28) scale(720 330)">
+    <stop stop-color="#00E883" stop-opacity=".16"/>
+    <stop offset="1" stop-color="#00E883" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="wave1" x1="0" y1="700" x2="1500" y2="1080" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#00E883" stop-opacity=".20"/>
+    <stop offset=".55" stop-color="#00B86B" stop-opacity=".08"/>
+    <stop offset="1" stop-color="#004C37" stop-opacity=".02"/>
+  </linearGradient>
+  <linearGradient id="wave2" x1="200" y1="830" x2="1900" y2="1040" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#006A4A" stop-opacity=".08"/>
+    <stop offset=".55" stop-color="#00E883" stop-opacity=".13"/>
+    <stop offset="1" stop-color="#00B86B" stop-opacity=".05"/>
+  </linearGradient>
+  <linearGradient id="brand" x1="1390" y1="550" x2="1800" y2="940" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#00E883"/>
+    <stop offset="1" stop-color="#00A866"/>
+  </linearGradient>
+  <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="22"/>
+  </filter>
+  <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+    <circle cx="3" cy="3" r="2" fill="#00E883" fill-opacity=".5"/>
+  </pattern>
+</defs>
+
+<!-- Base -->
+<rect width="1920" height="1080" fill="url(#bg)"/>
+<rect width="1920" height="1080" fill="url(#glowA)"/>
+<rect width="1920" height="1080" fill="url(#glowB)"/>
+
+<!-- subtle top-left radar -->
+<g opacity=".20" stroke="#00E883">
+  <circle cx="10" cy="-10" r="150"/>
+  <circle cx="10" cy="-10" r="220"/>
+  <circle cx="10" cy="-10" r="300"/>
+</g>
+<circle cx="225" cy="132" r="15" fill="#00E883" fill-opacity=".32"/>
+<circle cx="225" cy="132" r="30" fill="#00E883" fill-opacity=".06" filter="url(#softGlow)"/>
+
+<!-- dot grids -->
+<rect x="48" y="325" width="100" height="76" fill="url(#dots)" opacity=".42"/>
+<rect x="1715" y="86" width="100" height="76" fill="url(#dots)" opacity=".32"/>
+<rect x="92" y="930" width="120" height="82" fill="url(#dots)" opacity=".28"/>
+
+<!-- lower flowing waves -->
+<path d="M-120 736C112 628 238 649 414 802C590 955 735 1008 955 906C1175 804 1270 646 1484 611C1698 576 1840 680 2040 724V1180H-120V736Z" fill="url(#wave1)"/>
+<path d="M-90 860C100 755 218 789 360 918C502 1047 668 1087 878 985C1088 883 1186 822 1388 863C1590 904 1708 1036 2025 935V1180H-90V860Z" fill="url(#wave2)"/>
+
+<!-- wave outlines -->
+<path d="M-50 680C176 602 314 683 459 823C604 963 748 997 939 905C1130 813 1246 690 1429 668C1612 646 1771 735 1970 756" stroke="#00E883" stroke-opacity=".36" stroke-width="2"/>
+<path d="M-40 805C145 720 277 768 421 903C565 1038 715 1052 916 955C1117 858 1238 808 1426 844C1614 880 1755 991 1985 914" stroke="#00C979" stroke-opacity=".18" stroke-width="1.5"/>
+
+<!-- NoFallZap watermark -->
+<g transform="translate(1410 570)" opacity=".105">
+  <path d="M153 38C78 38 17 99 17 174c0 28.8 9 55.6 24.5 77.8L18 337l85.8-22.6A135 135 0 0 0 153 323c75 0 136-61 136-136S228 38 153 38Z"
+        stroke="url(#brand)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M143 333c73 0 134.3-45.3 159.3-109.3" stroke="url(#brand)" stroke-width="25" stroke-linecap="round"/>
+  <path d="M287 212l40 19-13 42" stroke="url(#brand)" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M108 131c13-13 27-2 34 9l15 23c6 9 4 19-4 27l-13 13c19 34 42 57 76 76l13-13c8-8 18-10 27-4l23 15c11 7 22 21 9 34-15 15-36 25-57 19-55-15-118-78-133-133-6-21 4-42 19-57Z" fill="#F4F7FA"/>
+  <path d="M246 13l65 25v55c0 48-25 86-65 107-40-21-65-59-65-107V38l65-25Z" fill="url(#brand)"/>
+  <path d="M219 99l19 19 38-46" stroke="#061015" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+
+<!-- tiny accent -->
+<path d="M50 1025H100" stroke="#00E883" stroke-width="4" stroke-linecap="round" opacity=".75"/>
+</svg>

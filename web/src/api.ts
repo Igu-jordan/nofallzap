@@ -198,7 +198,9 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { ...((init?.headers as Record<string, string>) ?? {}) };
   if (init?.body != null) headers['Content-Type'] = 'application/json';
 
-  const res = await fetch(path, { ...init, headers });
+  // 'include' e nao o padrao 'same-origin': se um dia o painel for servido
+  // de outro endereco que nao a API, o cookie de sessao ainda vai junto.
+  const res = await fetch(path, { ...init, headers, credentials: 'include' });
   const text = await res.text();
   const body = text ? JSON.parse(text) : null;
   if (!res.ok) {
@@ -208,6 +210,15 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // ------------------------------------------------------------- sessao
+  me: () => call<{ autenticado: boolean; usuario: string | null }>('/api/auth/me'),
+  login: (usuario: string, senha: string, lembrar: boolean) =>
+    call<{ autenticado: boolean; usuario: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ usuario, senha, lembrar }),
+    }),
+  logout: () => call<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
+
   settings: () =>
     call<{
       aiGloballyEnabled: boolean;
