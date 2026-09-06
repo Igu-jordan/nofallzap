@@ -34,8 +34,15 @@ case "$ROLE" in
     echo "[entrypoint] iniciando worker (filas)"
     exec node dist/worker.js
     ;;
+  link)
+    # So o redirecionador publico do rodizio. Servico separado porque a
+    # Autenticacao Basica do EasyPanel vale para o servico inteiro, e link
+    # de campanha nao pode pedir login. Nao mexe no schema.
+    echo "[entrypoint] iniciando link publico (rodizio) na porta ${PORT:-3000}"
+    exec node dist/link.js
+    ;;
   *)
-    echo "[entrypoint] papel desconhecido: $ROLE (use 'api' ou 'worker')"
+    echo "[entrypoint] papel desconhecido: $ROLE (use 'api', 'worker' ou 'link')"
     exit 1
     ;;
 esac

@@ -60,6 +60,42 @@ export interface GroupRow {
   dmAgentId: string | null;
 }
 
+export interface RotatorRow {
+  id: string;
+  name: string;
+  slug: string;
+  strategy: 'sequential' | 'random';
+  message: string | null;
+  isActive: boolean;
+  skipUnhealthy: boolean;
+  createdAt: string;
+  totalDestinations: number;
+  outOfRotation: number;
+  clicksTotal: number;
+  clicksToday: number;
+}
+
+export interface RotatorDest {
+  id: string;
+  label: string | null;
+  phoneNumber: string;
+  isActive: boolean;
+  dailyCap: number;
+  totalCap: number;
+  clicksToday: number;
+  clicksTotal: number;
+  lastClickAt: string | null;
+  order: number;
+  instance: { id: string; name: string; status: string } | null;
+  outReason: string | null;
+  outLabel: string | null;
+  preview: string;
+}
+
+export interface RotatorDetail extends RotatorRow {
+  destinations: RotatorDest[];
+}
+
 export interface ContactRow {
   id: string;
   remoteJid: string;
@@ -243,6 +279,27 @@ export const api = {
   },
   patchGroup: (groupId: string, data: Partial<GroupRow>) =>
     call<GroupRow>(`/api/groups/${groupId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  listRotators: () => call<RotatorRow[]>('/api/rotators'),
+  getRotator: (id: string) => call<RotatorDetail>(`/api/rotators/${id}`),
+  createRotator: (data: { name: string; strategy?: string; message?: string | null }) =>
+    call<RotatorRow>('/api/rotators', { method: 'POST', body: JSON.stringify(data) }),
+  patchRotator: (id: string, data: Record<string, unknown>) =>
+    call<RotatorRow>(`/api/rotators/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteRotator: (id: string) =>
+    call<{ ok: boolean }>(`/api/rotators/${id}`, { method: 'DELETE' }),
+  addDestinations: (id: string, data: { numbers: string; dailyCap?: number; totalCap?: number }) =>
+    call<{ ok: boolean; adicionados: number; invalidos: string[] }>(
+      `/api/rotators/${id}/destinations`,
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+  patchDestination: (destId: string, data: Record<string, unknown>) =>
+    call<RotatorDest>(`/api/rotators/destinations/${destId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  deleteDestination: (destId: string) =>
+    call<{ ok: boolean }>(`/api/rotators/destinations/${destId}`, { method: 'DELETE' }),
+
   listContacts: (id: string) => call<ContactRow[]>(`/api/instances/${id}/contacts`),
   getContact: (contactId: string) => call<ContactDetail>(`/api/contacts/${contactId}`),
   patchContact: (contactId: string, data: { aiEnabled?: boolean; notes?: string | null }) =>

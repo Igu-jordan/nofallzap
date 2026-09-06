@@ -5,6 +5,7 @@ import { Instances } from './pages/Instances';
 import { InstanceDetail } from './pages/InstanceDetail';
 import { Agents } from './pages/Agents';
 import { Warmup } from './pages/Warmup';
+import { Rotators } from './pages/Rotators';
 
 export default function App() {
   const [route, setRoute] = useState(() => window.location.hash.slice(1));
@@ -65,6 +66,13 @@ export default function App() {
         >
           Maturação
         </button>
+        <button
+          className="btn btn-sm"
+          style={{ marginLeft: 4 }}
+          onClick={() => (window.location.hash = '/rodizio')}
+        >
+          Rodízio de link
+        </button>
         <div className="spacer" />
         <button
           className={`kill-switch ${aiEnabled ? '' : 'paused'}`}
@@ -86,6 +94,8 @@ export default function App() {
           <Agents onBack={() => (window.location.hash = '')} />
         ) : route === '/maturacao' ? (
           <Warmup onBack={() => (window.location.hash = '')} />
+        ) : route === '/rodizio' ? (
+          <Rotators onBack={() => (window.location.hash = '')} />
         ) : instanceId ? (
           <InstanceDetail id={instanceId} onBack={() => (window.location.hash = '')} />
         ) : (

@@ -98,6 +98,8 @@ model Instance {
   messages Message[]
   events   InstanceEvent[]
   metrics  MetricDaily[]
+  /// destinos de rodizio que apontam para este numero
+  rotatorDestinations RotatorDestination[]
 
   @@index([status])
   @@index([deletedAt])
@@ -423,4 +425,98 @@ model OrphanEvent {
 
   @@index([receivedAt])
   @@map("orphan_events")
+}
+
+/**
+ * RODIZIO DE LINK (rotator).
+ *
+ * Um link publico que, a cada clique, manda o lead para um numero diferente.
+ * E o que se usa em campanha: um unico link no anuncio, varios WhatsApp
+ * atendendo.
+ *
+ * Os numeros sao DIGITADOS, nao escolhidos numa lista de instancias — assim
+ * cabe celular de vendedor que nem passa pelo painel. Mas se o numero
+ * digitado for igual ao de uma instancia, o painel amarra os dois sozinho
+ * (ver instanceId), e ai passa a saber quando aquele numero caiu.
+ */
+model Rotator {
+  id   String @id @default(uuid())
+  name String
+  /// pedaco final do link publico: /r/<slug>
+  slug String @unique
+
+  /// sequential = 1,2,3,1,2,3 (distribuicao exata) | random = sorteio
+  strategy String @default("sequential")
+  /// texto que ja vem digitado na conversa do lead
+  message  String?
+
+  isActive Boolean @default(true)
+  /// pular numero desconectado e numero que o WhatsApp esta recusando
+  skipUnhealthy Boolean @default(true)
+
+  /// ponteiro do rodizio sequencial. Incremento atomico no banco: dois
+  /// cliques ao mesmo tempo nunca caem no mesmo numero.
+  cursor Int @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  destinations RotatorDestination[]
+  clicks       RotatorClick[]
+
+  @@map("rotators")
+}
+
+model RotatorDestination {
+  id        String  @id @default(uuid())
+  rotatorId String  @map("rotator_id")
+  rotator   Rotator @relation(fields: [rotatorId], references: [id], onDelete: Cascade)
+
+  label       String?
+  /// so digitos, com DDI. Ex: 5511999999999
+  phoneNumber String  @map("phone_number")
+
+  /// preenchido quando este numero tambem e uma instancia do painel. E o
+  /// unico jeito de saber se ele caiu — numero solto o painel nao enxerga.
+  instanceId String?   @map("instance_id")
+  instance   Instance? @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+
+  isActive Boolean @default(true)
+
+  /// 0 = sem limite
+  dailyCap Int @default(0) @map("daily_cap")
+  totalCap Int @default(0) @map("total_cap")
+
+  clicksToday Int       @default(0) @map("clicks_today")
+  clicksTotal Int       @default(0) @map("clicks_total")
+  /// dia a que clicksToday se refere; vira sozinho na virada
+  dayRef      DateTime? @map("day_ref")
+  lastClickAt DateTime? @map("last_click_at")
+
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  clicks RotatorClick[]
+
+  @@unique([rotatorId, phoneNumber])
+  @@index([rotatorId, order])
+  @@map("rotator_destinations")
+}
+
+model RotatorClick {
+  id        BigInt  @id @default(autoincrement())
+  rotatorId String  @map("rotator_id")
+  rotator   Rotator @relation(fields: [rotatorId], references: [id], onDelete: Cascade)
+
+  destinationId String?             @map("destination_id")
+  destination   RotatorDestination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+
+  phoneNumber String  @map("phone_number")
+  /// ?src= do link, para separar origem de campanha
+  source      String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([rotatorId, createdAt])
+  @@map("rotator_clicks")
 }
