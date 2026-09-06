@@ -27,84 +27,23 @@
   overflow: hidden;
 }
 
-/* a arte oficial, sem esticar: cover mantém a proporção */
+/**
+ * A ARTE DE FUNDO, INTOCADA.
+ *
+ * É o /assets/branding/nofallzap-background.svg original, sem filtro, sem
+ * transformação e sem animação. `object-fit: cover` preenche a viewport
+ * mantendo a proporção: em tela estreita ele corta as bordas, mas nunca
+ * estica nem deforma. O próprio SVG já traz preserveAspectRatio="slice",
+ * então os dois concordam.
+ */
 .login-fundo {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.85;
   pointer-events: none;
   z-index: 0;
-}
-
-.login-onda-1,
-.login-onda-2 {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 1;
-  animation: ambientGlow 10s ease-in-out infinite;
-}
-.login-onda-1 {
-  width: 800px;
-  height: 330px;
-  left: -220px;
-  bottom: -150px;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(0, 232, 131, 0.18),
-    rgba(0, 232, 131, 0.04) 55%,
-    transparent 75%
-  );
-  transform: rotate(12deg);
-}
-.login-onda-2 {
-  width: 520px;
-  height: 230px;
-  left: 120px;
-  bottom: -110px;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(0, 232, 131, 0.1),
-    rgba(0, 232, 131, 0.02) 60%,
-    transparent 78%
-  );
-  transform: rotate(-8deg);
-  animation-delay: 3s;
-}
-
-.login-pontos {
-  position: absolute;
-  width: 70px;
-  height: 70px;
-  opacity: 0.4;
-  pointer-events: none;
-  z-index: 1;
-  background-image: radial-gradient(circle, rgba(0, 232, 131, 0.6) 1.5px, transparent 1.5px);
-  background-size: 24px 24px;
-}
-.login-pontos-a {
-  top: 64px;
-  right: 90px;
-}
-.login-pontos-b {
-  bottom: 90px;
-  left: 60px;
-  opacity: 0.25;
-}
-
-.login-marca-dagua {
-  position: absolute;
-  right: 4%;
-  bottom: 5%;
-  width: 340px;
-  height: auto;
-  opacity: 0.08;
-  filter: saturate(0.8);
-  pointer-events: none;
-  z-index: 1;
 }
 
 .login-marca-conteudo {
@@ -426,25 +365,11 @@
     transform: translateX(0);
   }
 }
-@keyframes ambientGlow {
-  0%,
-  100% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.03);
-  }
-}
 
 /* ============================================================ telas menores */
 @media (max-width: 1200px) {
   .login-marca {
     padding: 56px 48px;
-  }
-  .login-marca-dagua {
-    width: 260px;
   }
 }
 

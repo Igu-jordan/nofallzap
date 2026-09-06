@@ -48,17 +48,9 @@ export function FeatureItem({
 export function BrandPanel() {
   return (
     <section className="login-marca">
-      <div className="login-onda-1" aria-hidden="true" />
-      <div className="login-onda-2" aria-hidden="true" />
-      <div className="login-pontos login-pontos-a" aria-hidden="true" />
-      <div className="login-pontos login-pontos-b" aria-hidden="true" />
-      <img
-        className="login-marca-dagua"
-        src="/assets/branding/nofallzap-symbol.svg"
-        alt=""
-        aria-hidden="true"
-      />
-
+      {/* Nada de decoração aqui. As ondas, os pontos e o símbolo já vêm
+          desenhados dentro de nofallzap-background.svg — repetir em CSS por
+          cima só sujava a arte original. */}
       <div className="login-marca-conteudo">
         <img
           className="login-marca-logo"
