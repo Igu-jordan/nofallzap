@@ -874,3 +874,254 @@ select.input {
   align-items: center;
   gap: 7px;
 }
+
+/* ================================================================= *
+ * ALERTA DE QUALIDADE POR NÚMERO
+ *
+ * Três cores e nada mais: verde = nada fora do normal, amarelo = vale
+ * olhar, vermelho = prestes a ser restringido (ou já restringido).
+ * As cores saem dos tokens de status que o painel já usa — o selo de
+ * qualidade e o selo de conexão falam a mesma língua de propósito.
+ * ================================================================= */
+
+.selo-risco {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex: none;
+}
+.selo-risco.compacto {
+  padding: 4px 10px;
+  font-size: 11px;
+}
+.selo-risco-nota {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  font-weight: 700;
+}
+.selo-risco.ok {
+  color: var(--success);
+  background: var(--success-bg);
+  border-color: rgba(0, 232, 131, 0.3);
+}
+.selo-risco.atencao {
+  color: var(--warning);
+  background: var(--warning-bg);
+  border-color: rgba(245, 185, 66, 0.32);
+}
+.selo-risco.risco {
+  color: var(--danger-color);
+  background: var(--danger-bg);
+  border-color: rgba(255, 93, 105, 0.38);
+}
+
+/* faixa do card: selo + o primeiro motivo, numa linha só */
+.faixa-qualidade {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(157, 173, 188, 0.05);
+  border: 1px solid var(--border-default);
+}
+.faixa-qualidade.atencao {
+  background: var(--warning-bg);
+  border-color: rgba(245, 185, 66, 0.24);
+}
+.faixa-qualidade.risco {
+  background: var(--danger-bg);
+  border-color: rgba(255, 93, 105, 0.28);
+}
+.faixa-qualidade-texto {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  min-width: 0;
+}
+
+.aviso-freio {
+  margin-top: 10px;
+  padding: 9px 13px;
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  border: 1px solid rgba(245, 185, 66, 0.28);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* lista de motivos, no detalhe do número */
+.motivos-risco {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.motivos-risco li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.motivos-risco li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.motivos-risco.atencao li::before {
+  background: var(--warning);
+}
+.motivos-risco.risco li::before {
+  background: var(--danger-color);
+}
+
+/* interruptor dos três modos, na tela de Números */
+.painel-alerta {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  padding: 18px 22px;
+  margin-bottom: 22px;
+}
+.painel-alerta-texto {
+  flex: 1;
+  min-width: 260px;
+}
+.painel-alerta-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--green-primary);
+  margin-bottom: 6px;
+}
+.painel-alerta-texto p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 640px;
+}
+.painel-alerta-controle {
+  min-width: 280px;
+}
+.painel-alerta-controle > label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.seletor-acao .input {
+  width: 100%;
+}
+
+/* bloco de qualidade na Visão Geral do número */
+.bloco-qualidade-topo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.bloco-qualidade-topo > div:first-child {
+  flex: 1;
+  min-width: 180px;
+}
+.bloco-qualidade-titulo {
+  font-weight: 600;
+  font-size: 15px;
+}
+.sinais-risco {
+  margin-top: 14px;
+  border-top: 1px solid var(--border-default);
+}
+.sinal-linha {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-default);
+}
+.sinal-linha:last-child {
+  border-bottom: none;
+}
+.sinal-valor {
+  color: var(--text-primary);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.nota-origem {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: 14px 0 0;
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  background: rgba(157, 173, 188, 0.05);
+  border: 1px solid var(--border-default);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.nota-origem svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* faixas de "o painel agiu sozinho", no topo do detalhe do número */
+.faixa-risco {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+.faixa-risco strong {
+  color: var(--text-primary);
+}
+.faixa-risco.vermelha {
+  display: block;
+  background: var(--danger-bg);
+  border-color: rgba(255, 93, 105, 0.32);
+}
+.faixa-risco.amarela {
+  background: var(--warning-bg);
+  border-color: rgba(245, 185, 66, 0.28);
+  color: var(--warning);
+}
+.faixa-risco.amarela strong {
+  color: var(--warning);
+}
+.faixa-risco-acoes {
+  margin-top: 12px;
+}
+.faixa-risco svg {
+  flex: none;
+  margin-top: 2px;
+}

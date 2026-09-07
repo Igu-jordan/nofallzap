@@ -5,6 +5,7 @@ import { log } from '../lib/logger.js';
 import { logEvent, bumpMetricBoth } from './eventLog.js';
 import { isAiGloballyEnabled } from '../routes/settings.js';
 import { getWarmupConfig } from './warmup.js';
+import { estaFreando } from './risk.js';
 import * as evo from '../evolution/client.js';
 import type { SendJob } from '../queues/index.js';
 
@@ -20,6 +21,12 @@ import type { SendJob } from '../queues/index.js';
 const jitter = () =>
   env.SEND_MIN_DELAY_MS +
   Math.floor(Math.random() * Math.max(1, env.SEND_MAX_DELAY_MS - env.SEND_MIN_DELAY_MS));
+
+/// Quanto o freio de qualidade multiplica a espera entre um envio e o outro.
+const FATOR_FREIO = 3;
+/// Teto da espera freada. O BullMQ renova o lock do job sozinho, mas nao ha
+/// razao para segurar um envio por mais de meio minuto.
+const TETO_FREIO_MS = 25_000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -115,7 +122,13 @@ export async function processSend(job: SendJob) {
     }
   }
 
-  const delay = jitter();
+  // FREIO DE QUALIDADE (modo "reduzir o ritmo sozinho").
+  //
+  // Nao cancela envio nenhum: so espaca. Como esta fila tem concorrencia 1
+  // por numero, esperar mais aqui derruba de verdade a vazao daquele chip —
+  // sem tocar em nenhum outro. O teto e para nao estourar o lock do BullMQ.
+  const freando = estaFreando(instance);
+  const delay = freando ? Math.min(TETO_FREIO_MS, jitter() * FATOR_FREIO) : jitter();
 
   try {
     await evo.sendPresence(instance.evoName, remoteJid, 'composing', delay).catch(() => undefined);

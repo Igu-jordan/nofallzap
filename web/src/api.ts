@@ -1,4 +1,50 @@
-export interface InstanceSummary {
+/**
+ * QUALIDADE DO NÚMERO — medição do próprio painel.
+ *
+ * Importante para quem for mexer nisto: esta nota NÃO vem do WhatsApp. O
+ * semáforo verde/amarelo/vermelho oficial existe só na Cloud API paga, que é
+ * outro produto. Aqui a nota sai de dados que o painel já tem (entregas
+ * recusadas, quem responde, volume x idade do chip). A tela diz isso em voz
+ * alta — não troque esse texto por "nota do WhatsApp".
+ */
+export type NivelRisco = 'ok' | 'atencao' | 'risco';
+
+/** O que o painel faz quando um número entra em risco. */
+export type AcaoRisco = 'avisar' | 'reduzir' | 'desligar';
+
+export interface RiskSignals {
+  enviadas24h: number;
+  recusadas24h: number;
+  restricaoConfirmada: boolean;
+  bloqueadoPeloPainel: boolean;
+  conversasIniciadas7d: number;
+  conversasRespondidas7d: number;
+  conversasIniciadas24h: number;
+  diasDeChip: number;
+  taxaRecusa: number;
+  /// null = amostra pequena demais para o número significar alguma coisa
+  taxaResposta: number | null;
+  tetoSeguroDia: number;
+  tetoConversasNovas: number;
+}
+
+/** Campos de qualidade que acompanham toda instância. */
+export interface RiskFields {
+  riskScore: number;
+  riskLevel: NivelRisco;
+  riskReasons: string[];
+  /// modo deste número; null = segue o padrão do painel
+  riskAction: AcaoRisco | null;
+  riskCheckedAt: string | null;
+  /// preenchido quando o modo "tirar do ar" desligou o número sozinho
+  riskPausedAt: string | null;
+  /// enquanto estiver no futuro, o número está enviando mais devagar
+  throttledUntil: string | null;
+  /// "eu sei, deixa ligado": até quando as ações automáticas estão seguradas
+  riskSnoozeUntil: string | null;
+}
+
+export interface InstanceSummary extends RiskFields {
   id: string;
   name: string;
   evoName: string;
@@ -44,6 +90,11 @@ export interface InstanceDetail extends InstanceSummary {
     errors: number;
   };
   recentErrors: Array<{ id: string; event: string; message: string | null; createdAt: string }>;
+  /// números crus da última medição de qualidade
+  riskSignals: RiskSignals | null;
+  /// modo que de fato vale aqui (o do número, ou o padrão do painel)
+  riskAcaoEfetiva: AcaoRisco;
+  warmupEnabled: boolean;
 }
 
 export interface GroupRow {
@@ -321,6 +372,32 @@ export const api = {
   deleteContact: (contactId: string) =>
     call<{ ok: boolean }>(`/api/contacts/${contactId}`, { method: 'DELETE' }),
 
+  // ------------------------------------------------- alerta de qualidade
+  getRiskConfig: () =>
+    call<{ acao: AcaoRisco; acoes: AcaoRisco[]; limites: { ok: number; atencao: number } }>(
+      '/api/risk/config',
+    ),
+  setRiskConfig: (acao: AcaoRisco) =>
+    call<{ acao: AcaoRisco }>('/api/risk/config', {
+      method: 'POST',
+      body: JSON.stringify({ acao }),
+    }),
+  /** null volta a seguir o padrão do painel. */
+  setInstanceRiskAction: (id: string, acao: AcaoRisco | null) =>
+    call<{ acao: AcaoRisco | null; acaoEfetiva: AcaoRisco }>(
+      `/api/instances/${id}/risk/action`,
+      { method: 'POST', body: JSON.stringify({ acao }) },
+    ),
+  recheckRisk: (id: string) =>
+    call<{ nota: number; nivel: NivelRisco; motivos: string[]; sinais: RiskSignals }>(
+      `/api/instances/${id}/risk/recheck`,
+      { method: 'POST' },
+    ),
+  snoozeRisk: (id: string) =>
+    call<{ ok: boolean; silenciadoAte: string }>(`/api/instances/${id}/risk/snooze`, {
+      method: 'POST',
+    }),
+
   listEvents: (id: string, level?: string) =>
     call<EventRow[]>(`/api/instances/${id}/events${level ? `?level=${level}` : ''}`),
   listAgents: () => call<AgentRow[]>('/api/agents'),
@@ -354,6 +431,42 @@ export const MODELS = [
   { value: 'gpt-4.1-mini', label: 'gpt-4.1-mini' },
   { value: 'gpt-4.1', label: 'gpt-4.1' },
 ];
+
+export const NIVEL_RISCO_LABEL: Record<NivelRisco, string> = {
+  ok: 'Saudável',
+  atencao: 'Atenção',
+  risco: 'Risco',
+};
+
+/**
+ * Os três modos, com a explicação que aparece do lado.
+ *
+ * O texto descreve o que acontece de verdade — nada de "otimiza a entrega".
+ * Quem escolhe "tirar do ar" precisa saber que o número para de responder.
+ */
+export const ACOES_RISCO: Array<{ value: AcaoRisco; label: string; desc: string }> = [
+  {
+    value: 'avisar',
+    label: 'Só avisar',
+    desc: 'Mostra o alerta e não mexe em nada. Você decide o que fazer.',
+  },
+  {
+    value: 'reduzir',
+    label: 'Reduzir o ritmo sozinho',
+    desc: 'Além de avisar, espaça os envios e corta a maturação pela metade enquanto o risco durar. Volta ao normal sozinho.',
+  },
+  {
+    value: 'desligar',
+    label: 'Tirar do ar',
+    desc: 'Além de avisar, desliga a IA e a maturação deste número. Ele só volta quando você mandar.',
+  },
+];
+
+export const ACAO_RISCO_LABEL: Record<AcaoRisco, string> = {
+  avisar: 'Só avisar',
+  reduzir: 'Reduzir o ritmo sozinho',
+  desligar: 'Tirar do ar',
+};
 
 export const STATUS_LABEL: Record<InstanceStatus, string> = {
   creating: 'Criando',

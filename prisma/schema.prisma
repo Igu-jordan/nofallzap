@@ -87,6 +87,32 @@ model Instance {
   deliveryFailures  Int       @default(0) @map("delivery_failures")
   deliveryBlockedAt DateTime? @map("delivery_blocked_at")
 
+  // ------------------------------------------------------------ QUALIDADE
+  // ATENCAO ao ler estes campos: esta nota e NOSSA, calculada com os dados
+  // que o painel ja tem. Nao existe "nota de qualidade" do WhatsApp para
+  // este tipo de conexao — o semaforo verde/amarelo/vermelho oficial e da
+  // Cloud API paga, outro produto. Prometer que isto e a nota do WhatsApp
+  // seria mentira, e a tela diz isso com todas as letras.
+  /// 0 a 100. 100 = nada fora do normal.
+  riskScore     Int       @default(100) @map("risk_score")
+  /// ok | atencao | risco
+  riskLevel     String    @default("ok") @map("risk_level")
+  /// motivos escritos por extenso, prontos para a tela
+  riskReasons   Json      @default("[]") @map("risk_reasons")
+  /// os numeros crus da ultima medicao (recusas, taxa de resposta, volume)
+  riskSignals   Json?     @map("risk_signals")
+  riskCheckedAt DateTime? @map("risk_checked_at")
+
+  /// avisar | reduzir | desligar. null = segue a configuracao global.
+  riskAction String? @map("risk_action")
+  /// enquanto estiver no futuro, este numero envia mais devagar (modo reduzir)
+  throttledUntil DateTime? @map("throttled_until")
+  /// preenchido quando o modo "tirar do ar" desligou este numero sozinho
+  riskPausedAt   DateTime? @map("risk_paused_at")
+  /// "eu sei do risco, deixa ligado": ate esta hora o painel so avisa, sem
+  /// frear nem desligar. So o dono aperta isso — o alerta continua aparecendo.
+  riskSnoozeUntil DateTime? @map("risk_snooze_until")
+
   lastConnectedAt   DateTime? @map("last_connected_at")
   lastActivityAt    DateTime? @map("last_activity_at")
   createdAt         DateTime  @default(now()) @map("created_at")

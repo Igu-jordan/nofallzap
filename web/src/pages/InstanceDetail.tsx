@@ -6,11 +6,21 @@ import {
   type InstanceDetail as Detail,
   type GroupRow,
   type AgentRow,
+  type AcaoRisco,
   type EventRow,
   type InstanceStatus,
 } from '../api';
 import { on } from '../socket';
 import { StatusBadge, Avatar, Toggle, ErrorBox } from '../components/Common';
+import {
+  AvisoOrigemNota,
+  BotaoRemedir,
+  FaixaAcaoAutomatica,
+  MotivosRisco,
+  SeletorAcao,
+  SeloRisco,
+  SinaisRiscoTabela,
+} from '../components/Risco';
 import { QrModal } from '../components/QrModal';
 import { Contacts } from './Contacts';
 
@@ -30,6 +40,7 @@ export function InstanceDetail({ id, onBack }: { id: string; onBack: () => void 
   const [data, setData] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [religando, setReligando] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -48,7 +59,13 @@ export function InstanceDetail({ id, onBack }: { id: string; onBack: () => void 
     const off = on<{ instanceId: string; status: InstanceStatus }>('instance:status', (p) => {
       if (p.instanceId === id) void load();
     });
-    return off;
+    const offRisco = on<{ instanceId: string }>('instance:risk', (p) => {
+      if (p.instanceId === id) void load();
+    });
+    return () => {
+      off();
+      offRisco();
+    };
   }, [id, load]);
 
   if (error && !data) return <ErrorBox message={error} />;
@@ -114,7 +131,27 @@ export function InstanceDetail({ id, onBack }: { id: string; onBack: () => void 
         ))}
       </div>
 
-      {tab === 'overview' && <Overview data={data} />}
+      {/*
+        ALERTA DE QUALIDADE. Fica antes das abas, junto do aviso de entrega:
+        se o painel desligou ou freou este número sozinho, isso precisa estar
+        na cara de quem abre a tela, não escondido dentro de uma aba.
+      */}
+      <FaixaAcaoAutomatica
+        pausadoEm={data.riskPausedAt}
+        freandoAte={data.throttledUntil}
+        silenciadoAte={data.riskSnoozeUntil}
+        religando={religando}
+        onReligar={() => {
+          setReligando(true);
+          void api
+            .snoozeRisk(data.id)
+            .then(load)
+            .catch((e) => setError((e as Error).message))
+            .finally(() => setReligando(false));
+        }}
+      />
+
+      {tab === 'overview' && <Overview data={data} onChanged={load} />}
       {tab === 'groups' && <Groups instanceId={id} onChanged={load} />}
       {tab === 'contacts' && <Contacts instanceId={id} />}
       {tab === 'settings' && <Settings data={data} onChanged={load} />}
@@ -137,10 +174,12 @@ export function InstanceDetail({ id, onBack }: { id: string; onBack: () => void 
 
 /* ------------------------------------------------------------- Visão Geral */
 
-function Overview({ data }: { data: Detail }) {
+function Overview({ data, onChanged }: { data: Detail; onChanged: () => void }) {
   const k = data.today;
   return (
     <>
+      <BlocoQualidade data={data} onChanged={onChanged} />
+
       <div className="kpis">
         <Kpi n={data.groupsCount} label="grupos" />
         <Kpi n={data.groupsWithAi} label="grupos com IA" accent={data.groupsWithAi > 0} />
@@ -170,6 +209,88 @@ function Overview({ data }: { data: Detail }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * QUALIDADE DESTE NÚMERO.
+ *
+ * Nota, motivos, os números crus que geraram a nota, e o modo que vale aqui.
+ * O modo do número ganha do padrão do painel — "Seguir o padrão" devolve o
+ * controle para a tela de Números.
+ */
+function BlocoQualidade({ data, onChanged }: { data: Detail; onChanged: () => void }) {
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [detalhado, setDetalhado] = useState(false);
+
+  async function trocarAcao(acao: AcaoRisco | null) {
+    setSalvando(true);
+    setErro(null);
+    try {
+      await api.setInstanceRiskAction(data.id, acao);
+      onChanged();
+    } catch (e) {
+      setErro((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="card bloco-qualidade" style={{ marginBottom: 16 }}>
+      <div className="bloco-qualidade-topo">
+        <div>
+          <div className="bloco-qualidade-titulo">Qualidade do número</div>
+          <div className="dica-campo">
+            {data.riskCheckedAt ? `Medido ${timeAgo(data.riskCheckedAt)}` : 'Ainda não medido'}
+          </div>
+        </div>
+        <SeloRisco nivel={data.riskLevel} nota={data.riskScore} />
+        <BotaoRemedir
+          onMedir={async () => {
+            try {
+              await api.recheckRisk(data.id);
+              onChanged();
+            } catch (e) {
+              setErro((e as Error).message);
+            }
+          }}
+        />
+      </div>
+
+      <MotivosRisco motivos={data.riskReasons ?? []} nivel={data.riskLevel} />
+
+      <ErrorBox message={erro} />
+
+      <div className="field" style={{ maxWidth: 420, marginTop: 14 }}>
+        <label htmlFor="acao-risco-instancia">Quando este número entrar em risco</label>
+        <SeletorAcao
+          id="acao-risco-instancia"
+          valor={data.riskAction}
+          padrao={data.riskAcaoEfetiva}
+          disabled={salvando}
+          onChange={(v) => void trocarAcao(v)}
+        />
+      </div>
+
+      <button className="btn btn-sm" style={{ marginTop: 12 }} onClick={() => setDetalhado((v) => !v)}>
+        {detalhado ? 'Esconder os números' : 'Ver os números por trás da nota'}
+      </button>
+
+      {detalhado && (
+        <>
+          {data.riskSignals ? (
+            <SinaisRiscoTabela s={data.riskSignals} />
+          ) : (
+            <div className="dica-campo" style={{ marginTop: 10 }}>
+              Nenhuma medição guardada ainda. Clique em “Medir agora”.
+            </div>
+          )}
+          <AvisoOrigemNota />
+        </>
+      )}
+    </div>
   );
 }
 

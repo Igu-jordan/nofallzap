@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma.js';
 import { log } from '../lib/logger.js';
 import { logEvent } from './eventLog.js';
 import { withinWorkHours } from './rhythm.js';
+import { estaFreando } from './risk.js';
 import { complete, type ChatMessage } from '../ai/provider.js';
 import { getSendQueue } from '../queues/index.js';
 import type { Instance, WarmupConfig, WarmupThread } from '@prisma/client';
@@ -290,7 +291,12 @@ export async function runWarmupTick() {
   const eligible = new Set<string>();
   for (const i of pool) {
     if (i.nextWarmupAt && now < i.nextWarmupAt) continue;
-    if ((await sentToday(i.id)) >= dailyCap(cfg, i.warmupStartedAt)) continue;
+    // FREIO DE QUALIDADE: numero em risco com o modo "reduzir" anda com
+    // metade do teto do dia. A maturacao e o trafego mais artificial que o
+    // chip faz — se e para diminuir alguma coisa, diminui essa primeiro.
+    const teto = dailyCap(cfg, i.warmupStartedAt);
+    const tetoEfetivo = estaFreando(i, now) ? Math.max(1, Math.floor(teto / 2)) : teto;
+    if ((await sentToday(i.id)) >= tetoEfetivo) continue;
     eligible.add(i.id);
   }
   if (eligible.size === 0) return;

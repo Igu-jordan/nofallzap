@@ -25,6 +25,7 @@ import {
   jidToNumber,
 } from './services/decisionGate.js';
 import { runWarmupTick } from './services/warmup.js';
+import { avaliarInstancia, avaliarTodas } from './services/risk.js';
 
 /**
  * WORKER — FILA 1 (ingest).
@@ -352,6 +353,8 @@ async function handleMessageUpdate(job: IngestJob) {
   };
   const raw = job.data as Update | Update[] | null;
   const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  /// so repinta o semaforo se alguma coisa realmente foi recusada
+  let houveRecusa = false;
 
   for (const u of list) {
     const status = String(u?.status ?? '').toUpperCase();
@@ -372,6 +375,7 @@ async function handleMessageUpdate(job: IngestJob) {
     }
 
     if (status !== 'ERROR') continue;
+    houveRecusa = true;
 
     const jid = u?.key?.remoteJid ?? '';
     const motivo = motivoDaRecusa(u);
@@ -436,6 +440,14 @@ async function handleMessageUpdate(job: IngestJob) {
       instanceId: job.instanceId,
       name: counted.name,
     });
+  }
+
+  // Recusa de entrega e o sinal mais forte que existe: nao espera a rodada
+  // de dez minutos para repintar o semaforo deste numero.
+  if (houveRecusa) {
+    await avaliarInstancia(job.instanceId).catch((e) =>
+      log.warn('risk.reavaliarFalhou', { instanceId: job.instanceId, error: (e as Error).message }),
+    );
   }
 }
 
@@ -625,6 +637,28 @@ const warmupTimer = setInterval(() => {
   );
 }, 60_000);
 
+// ------------------------------------------------- QUALIDADE (alerta por numero)
+//
+// De dez em dez minutos o painel remede todos os numeros. A janela dos sinais
+// e de 24h e 7 dias, entao nada muda de minuto a minuto — medir mais rapido so
+// gastaria banco. Recusa de entrega nao espera esta rodada: ela dispara a
+// medicao daquele numero na hora, la em handleMessageUpdate.
+const INTERVALO_QUALIDADE_MS = 10 * 60_000;
+
+const riskTimer = setInterval(() => {
+  void avaliarTodas().catch((err) =>
+    log.warn('risk.rodadaFalhou', { error: (err as Error).message }),
+  );
+}, INTERVALO_QUALIDADE_MS);
+
+// Primeira medicao logo apos subir, para o painel nao ficar 10 minutos com a
+// nota da rodada anterior depois de um deploy.
+setTimeout(() => {
+  void avaliarTodas().catch((err) =>
+    log.warn('risk.rodadaInicialFalhou', { error: (err as Error).message }),
+  );
+}, 20_000);
+
 // ------------------------------------------------- reconciliacao periodica
 const reconcileTimer = setInterval(() => {
   service.reconcileAll().catch((err) =>
@@ -639,6 +673,7 @@ async function shutdown(signal: string) {
   clearInterval(reconcileTimer);
   clearInterval(sendWorkerTimer);
   clearInterval(warmupTimer);
+  clearInterval(riskTimer);
   try {
     await worker.close();
     await decideWorker.close();

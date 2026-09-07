@@ -17,6 +17,7 @@ import { contactRoutes } from './routes/contacts.js';
 import { rotatorRoutes } from './routes/rotators.js';
 import { settingsRoutes } from './routes/settings.js';
 import { warmupRoutes } from './routes/warmup.js';
+import { riskRoutes } from './routes/risk.js';
 import * as evo from './evolution/client.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -49,6 +50,7 @@ await app.register(contactRoutes);
 await app.register(rotatorRoutes);
 await app.register(settingsRoutes);
 await app.register(warmupRoutes);
+await app.register(riskRoutes);
 
 // --------------------------------------------------- painel (SPA compilada)
 if (existsSync(WEB_DIST)) {

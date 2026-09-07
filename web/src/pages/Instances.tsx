@@ -4,6 +4,7 @@ import {
   timeAgo,
   formatDay,
   STATUS_LABEL,
+  type AcaoRisco,
   type InstanceSummary,
   type InstanceStatus,
 } from '../api';
@@ -11,11 +12,13 @@ import { on } from '../socket';
 import { StatusBadge, Avatar, ErrorBox } from '../components/Common';
 import { QrModal } from '../components/QrModal';
 import { PageHeader, SearchBar, DropdownMenu, MetricItem } from '../components/Layout';
+import { SeloRisco, SeletorAcao } from '../components/Risco';
 import {
   IconeAbrirFora,
   IconeCalendario,
   IconeCelular,
   IconeDetalhe,
+  IconeEscudo,
   IconeGrupos,
   IconeIa,
   IconeMais,
@@ -63,6 +66,8 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
       },
     );
     const offGroups = on('instance:groups', () => void load());
+    // a nota muda sozinha: quando ela muda, os cards já sabem
+    const offRisco = on<{ instanceId: string }>('instance:risk', () => void load());
     const offRemoved = on<{ instanceId: string }>('instance:removed', (p) =>
       setItems((prev) => prev.filter((i) => i.id !== p.instanceId)),
     );
@@ -70,6 +75,7 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
       offStatus();
       offGroups();
       offRemoved();
+      offRisco();
     };
   }, [load]);
 
@@ -139,6 +145,8 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
         {items.length > 0 && <SearchBar valor={busca} onChange={setBusca} />}
       </div>
 
+      {items.length > 0 && <ControleAlerta />}
+
       {items.length === 0 ? (
         <div className="empty">
           Nenhum WhatsApp conectado ainda.
@@ -173,6 +181,68 @@ export function Instances({ onOpen }: { onOpen: (id: string) => void }) {
         />
       )}
     </>
+  );
+}
+
+/**
+ * O INTERRUPTOR DOS TRÊS MODOS.
+ *
+ * Fica aqui, ao lado dos selos que ele comanda, e não numa tela de
+ * configurações separada: a decisão "o que fazer quando um número ficar
+ * vermelho" só faz sentido olhando para os números.
+ *
+ * Vale para todos os números. Um número específico pode ter o seu próprio
+ * modo, na aba Configurações dele.
+ */
+function ControleAlerta() {
+  const [acao, setAcao] = useState<AcaoRisco | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api
+      .getRiskConfig()
+      .then((c) => setAcao(c.acao))
+      .catch((e) => setErro((e as Error).message));
+  }, []);
+
+  async function trocar(nova: AcaoRisco | null) {
+    if (!nova) return;
+    const anterior = acao;
+    setAcao(nova); // responde na hora; volta atrás se o servidor recusar
+    setSalvando(true);
+    setErro(null);
+    try {
+      await api.setRiskConfig(nova);
+    } catch (e) {
+      setAcao(anterior);
+      setErro((e as Error).message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  if (!acao) return null;
+
+  return (
+    <div className="painel-alerta">
+      <div className="painel-alerta-texto">
+        <div className="painel-alerta-titulo">
+          <IconeEscudo size={16} />
+          Alerta de qualidade
+        </div>
+        <p>
+          O painel mede a saúde de cada número com os dados daqui — entregas recusadas, quantas
+          pessoas respondem e o volume para a idade do chip — e pinta o selo de verde, amarelo ou
+          vermelho. Escolha o que ele faz quando um número entra no vermelho.
+        </p>
+      </div>
+      <div className="painel-alerta-controle">
+        <label htmlFor="acao-risco-global">Quando um número entrar em risco</label>
+        <SeletorAcao id="acao-risco-global" valor={acao} onChange={trocar} disabled={salvando} />
+        <ErrorBox message={erro} />
+      </div>
+    </div>
   );
 }
 
@@ -225,6 +295,24 @@ function CardInstancia({
       {/* "Conectado" sozinho engana quando o envio esta sendo recusado */}
       {i.deliveryBlockedAt && (
         <div className="aviso-entrega">não está entregando — IA desligada automaticamente</div>
+      )}
+
+      {/* QUALIDADE. Aparece sempre, inclusive no verde: um selo que só
+          existe quando há problema não ensina ninguém a ler o selo. */}
+      <div className={`faixa-qualidade ${i.riskLevel}`}>
+        <SeloRisco nivel={i.riskLevel} nota={i.riskScore} compacto />
+        <span className="faixa-qualidade-texto">
+          {i.riskReasons?.[0] ?? 'Ainda não medido.'}
+        </span>
+      </div>
+
+      {i.riskPausedAt && (
+        <div className="aviso-entrega">
+          tirado do ar pelo alerta de qualidade — abra os detalhes para religar
+        </div>
+      )}
+      {!i.riskPausedAt && i.throttledUntil && new Date(i.throttledUntil) > new Date() && (
+        <div className="aviso-freio">ritmo reduzido automaticamente pelo alerta de qualidade</div>
       )}
 
       <div className="divisor" />

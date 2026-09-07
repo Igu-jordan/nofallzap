@@ -7,6 +7,7 @@ import { invalidateInstanceCache } from './webhook.js';
 import * as evo from '../evolution/client.js';
 import { log } from '../lib/logger.js';
 import { logEvent } from '../services/eventLog.js';
+import { acaoDaInstancia } from '../services/risk.js';
 
 const createSchema = z.object({ name: z.string().min(2).max(60) });
 const patchSchema = z.object({
@@ -14,6 +15,8 @@ const patchSchema = z.object({
   aiEnabled: z.boolean().optional(),
   // ritmo humano — vive na instancia porque quem descansa e a pessoa
   rhythmEnabled: z.boolean().optional(),
+  /// modo do alerta de qualidade. null volta a seguir o padrao do painel.
+  riskAction: z.enum(['avisar', 'reduzir', 'desligar']).nullable().optional(),
   activeMinutes: z.number().int().min(1).max(1440).optional(),
   pauseMinutes: z.number().int().min(0).max(1440).optional(),
   workStartHour: z.number().int().min(0).max(23).optional(),
@@ -38,6 +41,15 @@ export async function instanceRoutes(app: FastifyInstance) {
         statusDetail: true,
         aiEnabled: true,
         deliveryBlockedAt: true,
+        // qualidade: o selo do card sai daqui pronto, sem segunda chamada
+        riskScore: true,
+        riskLevel: true,
+        riskReasons: true,
+        riskAction: true,
+        riskCheckedAt: true,
+        riskPausedAt: true,
+        throttledUntil: true,
+        riskSnoozeUntil: true,
         lastConnectedAt: true,
         lastActivityAt: true,
         createdAt: true,
@@ -93,6 +105,8 @@ export async function instanceRoutes(app: FastifyInstance) {
       lastQrBase64: undefined, // nao vaza QR na visao geral
       groupsCount,
       groupsWithAi,
+      // qual modo de fato vale aqui: o do numero, ou o padrao do painel
+      riskAcaoEfetiva: await acaoDaInstancia(instance),
       today: {
         received: today?.received ?? 0,
         processed: today?.processed ?? 0,
