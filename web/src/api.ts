@@ -95,6 +95,8 @@ export interface InstanceDetail extends InstanceSummary {
   /// modo que de fato vale aqui (o do número, ou o padrão do painel)
   riskAcaoEfetiva: AcaoRisco;
   warmupEnabled: boolean;
+  /// quem atende quem chama este número direto no privado; null = ninguém
+  dmAgentId: string | null;
 }
 
 export interface GroupRow {
@@ -300,6 +302,8 @@ export const api = {
       pauseMinutes?: number;
       workStartHour?: number;
       workEndHour?: number;
+      riskAction?: AcaoRisco | null;
+      dmAgentId?: string | null;
     },
   ) =>
     call<InstanceSummary>(`/api/instances/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -364,7 +368,10 @@ export const api = {
 
   listContacts: (id: string) => call<ContactRow[]>(`/api/instances/${id}/contacts`),
   getContact: (contactId: string) => call<ContactDetail>(`/api/contacts/${contactId}`),
-  patchContact: (contactId: string, data: { aiEnabled?: boolean; notes?: string | null }) =>
+  patchContact: (
+    contactId: string,
+    data: { aiEnabled?: boolean; notes?: string | null; agentId?: string | null },
+  ) =>
     call<ContactRow>(`/api/contacts/${contactId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

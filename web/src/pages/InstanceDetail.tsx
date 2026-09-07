@@ -153,7 +153,7 @@ export function InstanceDetail({ id, onBack }: { id: string; onBack: () => void 
 
       {tab === 'overview' && <Overview data={data} onChanged={load} />}
       {tab === 'groups' && <Groups instanceId={id} onChanged={load} />}
-      {tab === 'contacts' && <Contacts instanceId={id} />}
+      {tab === 'contacts' && <Contacts instanceId={id} dmAgentId={data.dmAgentId} />}
       {tab === 'settings' && <Settings data={data} onChanged={load} />}
       {tab === 'logs' && <Logs instanceId={id} />}
       {tab === 'connection' && (
@@ -509,6 +509,11 @@ function Settings({ data, onChanged }: { data: Detail; onChanged: () => void }) 
   const [name, setName] = useState(data.name);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<AgentRow[]>([]);
+
+  useEffect(() => {
+    void api.listAgents().then(setAgents).catch(() => undefined);
+  }, []);
 
   async function save(patch: {
     name?: string;
@@ -518,6 +523,7 @@ function Settings({ data, onChanged }: { data: Detail; onChanged: () => void }) 
     pauseMinutes?: number;
     workStartHour?: number;
     workEndHour?: number;
+    dmAgentId?: string | null;
   }) {
     setSaving(true);
     try {
@@ -551,6 +557,36 @@ function Settings({ data, onChanged }: { data: Detail; onChanged: () => void }) 
             </div>
           </div>
           <Toggle checked={data.aiEnabled} onChange={(v) => void save({ aiEnabled: v })} />
+        </div>
+
+        {/*
+          QUEM ATENDE QUEM CHAMA ESTE NÚMERO DIRETO.
+
+          Quem sai de um grupo já vem com o agente daquele grupo. Quem manda
+          mensagem por conta própria não veio de grupo nenhum — sem este campo
+          a conversa ficava sem agente e a IA não respondia, sem aviso.
+        */}
+        <div className="field">
+          <label htmlFor="dm-agent">Agente do privado</label>
+          <select
+            id="dm-agent"
+            className="input"
+            value={data.dmAgentId ?? ''}
+            disabled={saving}
+            onChange={(e) => void save({ dmAgentId: e.target.value || null })}
+          >
+            <option value="">— ninguém atende —</option>
+            {agents.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+          <div className="dica-campo">
+            Atende quem chama este número direto no WhatsApp, sem ter passado por grupo. Vazio
+            significa que ninguém responde essas mensagens — elas continuam sendo guardadas em
+            Conversas privadas.
+          </div>
         </div>
 
         <button

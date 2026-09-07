@@ -364,7 +364,7 @@ async function handleEscalation(args: {
 export async function processDmDecision(instanceId: string, contactId: string) {
   const started = Date.now();
 
-  const [instance, contact] = await Promise.all([
+  const [instance, contatoOriginal] = await Promise.all([
     prisma.instance.findUnique({ where: { id: instanceId } }),
     prisma.contact.findUnique({
       where: { id: contactId },
@@ -372,9 +372,39 @@ export async function processDmDecision(instanceId: string, contactId: string) {
     }),
   ]);
 
-  if (!instance || !contact) {
+  if (!instance || !contatoOriginal) {
     log.warn('dm.missingEntities', { instanceId, contactId });
     return;
+  }
+
+  /**
+   * QUEM CHAMOU O NUMERO DIRETO NAO VEIO DE GRUPO NENHUM.
+   *
+   * Contato escalonado ja nasce com o agente do grupo de origem. Quem manda
+   * mensagem por conta propria nascia com agente NULO — e o portao recusava
+   * com "nenhum agente associado", sem nada aparecer na tela. Da tela parecia
+   * que o privado simplesmente nao funcionava.
+   *
+   * A queda e para o agente do privado DO NUMERO. Se ele estiver vazio,
+   * continua sem responder: atender desconhecido segue sendo escolha sua.
+   *
+   * Grava no contato em vez de so usar na hora, por dois motivos: a tela de
+   * Conversas privadas passa a mostrar quem esta atendendo, e trocar o agente
+   * do numero depois nao reescreve conversas que ja estavam em andamento.
+   */
+  let contact = contatoOriginal;
+  if (!contact.agentId && instance.dmAgentId) {
+    contact = await prisma.contact.update({
+      where: { id: contactId },
+      data: { agentId: instance.dmAgentId },
+      include: { agent: true, originGroup: true },
+    });
+    await logEvent({
+      instanceId,
+      level: 'info',
+      event: 'dm_agent_assigned',
+      message: `${contact.pushName ?? contact.phoneNumber} chamou direto: atendimento com o agente "${contact.agent?.name ?? '?'}" (agente do privado deste número)`,
+    });
   }
 
   const incoming = await prisma.message.findMany({

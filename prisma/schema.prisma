@@ -47,6 +47,20 @@ model Instance {
   /// pausa nivel INSTANCIA
   aiEnabled Boolean @default(false) @map("ai_enabled")
 
+  /**
+   * QUEM ATENDE QUEM CHAMA ESTE NUMERO DIRETO.
+   *
+   * Contato que sai de um grupo herda o agente do privado DAQUELE grupo. Mas
+   * quem simplesmente manda mensagem para o numero nao veio de grupo nenhum —
+   * nascia sem agente, e o portao recusava a resposta em silencio ("nenhum
+   * agente associado"). Era o buraco que fazia o privado parecer quebrado.
+   *
+   * Vazio = ninguem atende o privado por conta propria. Continua sendo opt-in:
+   * responder desconhecido e decisao sua, nao padrao do sistema.
+   */
+  dmAgentId String? @map("dm_agent_id")
+  dmAgent   Agent?  @relation("InstanceDmAgent", fields: [dmAgentId], references: [id], onDelete: SetNull)
+
   // ---------------------------------------------------------------- RITMO
   // Uma pessoa nao fica grudada no WhatsApp 24h por dia. O ritmo vive na
   // INSTANCIA porque quem descansa e a pessoa (o numero), nao o papel: ela
@@ -147,6 +161,8 @@ model Agent {
   /// grupos que usam este agente para atender no PRIVADO. E aqui que mora o
   /// que o grupo nao pode ver: preco, condicao, dado de cliente.
   dmGroups Group[]   @relation("GroupDmAgent")
+  /// numeros que usam este agente para atender quem chama direto no privado
+  dmInstances Instance[] @relation("InstanceDmAgent")
   contacts Contact[]
 
   @@map("agents")

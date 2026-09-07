@@ -247,7 +247,13 @@ export async function shouldReplyDm(ctx: {
   if (!rhythm.active) return deny(rhythm.reason);
 
   if (!contact.aiEnabled) return deny('IA desligada nesta conversa');
-  if (!contact.agentId || !contact.agent) return deny('nenhum agente associado a este contato');
+  // A mensagem diz o que fazer de proposito: ela aparece nos Logs do numero, e
+  // "nenhum agente associado" sozinho nao ensina ninguem a resolver.
+  if (!contact.agentId || !contact.agent) {
+    return deny(
+      'ninguém atende o privado deste número — escolha o "Agente do privado" nas Configurações da instância, ou um agente para esta conversa',
+    );
+  }
   if (!contact.agent.isActive) return deny(`agente "${contact.agent.name}" esta inativo`);
 
   const managed = await managedNumbers();

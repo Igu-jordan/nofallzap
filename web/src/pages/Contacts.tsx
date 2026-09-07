@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { api, timeAgo, formatDate, type ContactRow, type ContactDetail } from '../api';
+import {
+  api,
+  timeAgo,
+  formatDate,
+  type AgentRow,
+  type ContactRow,
+  type ContactDetail,
+} from '../api';
 import { Toggle, ErrorBox } from '../components/Common';
 import { IconeHistorico } from '../components/Icons';
 
@@ -10,11 +17,23 @@ import { IconeHistorico } from '../components/Icons';
  * chamaram o número por conta própria. O que a tela precisa responder de
  * relance: de onde essa pessoa veio, o que já foi dito, e a IA está falando?
  */
-export function Contacts({ instanceId }: { instanceId: string }) {
+export function Contacts({
+  instanceId,
+  /// agente do privado do número; null = ninguém atende quem chama direto
+  dmAgentId,
+}: {
+  instanceId: string;
+  dmAgentId?: string | null;
+}) {
   const [rows, setRows] = useState<ContactRow[]>([]);
   const [open, setOpen] = useState<ContactDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<AgentRow[]>([]);
+
+  useEffect(() => {
+    void api.listAgents().then(setAgents).catch(() => undefined);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,6 +55,29 @@ export function Contacts({ instanceId }: { instanceId: string }) {
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, aiEnabled: on } : r)));
     try {
       await api.patchContact(row.id, { aiEnabled: on });
+    } catch (e) {
+      setError((e as Error).message);
+      await load();
+    }
+  }
+
+  /**
+   * Troca quem atende ESTA conversa.
+   *
+   * Vale só para ela: o "Agente do privado" das Configurações decide quem
+   * atende as conversas NOVAS, e não reescreve as que já estão andando.
+   */
+  async function trocarAgente(row: ContactRow, agentId: string | null) {
+    const escolhido = agents.find((a) => a.id === agentId) ?? null;
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === row.id
+          ? { ...r, agent: escolhido ? { id: escolhido.id, name: escolhido.name } : null }
+          : r,
+      ),
+    );
+    try {
+      await api.patchContact(row.id, { agentId });
     } catch (e) {
       setError((e as Error).message);
       await load();
@@ -71,6 +113,23 @@ export function Contacts({ instanceId }: { instanceId: string }) {
   return (
     <>
       <ErrorBox message={error} />
+
+      {/*
+        O ERRO QUE ESTA FAIXA EXISTE PARA MATAR.
+
+        Quem chama o número direto não vem de grupo nenhum, então não herda
+        agente de lugar nenhum. Sem o "Agente do privado" escolhido, a
+        conversa é guardada, aparece nesta lista, e a IA simplesmente não
+        responde — sem erro, sem aviso. Da tela parecia defeito.
+      */}
+      {dmAgentId === null && rows.some((r) => !r.agent) && (
+        <div className="faixa-risco amarela" style={{ display: 'block' }}>
+          <strong>Ninguém está atendendo o privado deste número.</strong> Quem chama direto no
+          WhatsApp não passa por grupo, então não herda agente de lugar nenhum. Escolha o{' '}
+          <em>Agente do privado</em> na aba Configurações — ou um agente na coluna Agente, aqui
+          embaixo, para uma conversa só.
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div className="empty">
@@ -113,7 +172,25 @@ export function Contacts({ instanceId }: { instanceId: string }) {
                       <span className="card-sub">chamou direto</span>
                     )}
                   </td>
-                  <td>{r.agent?.name ?? <span className="card-sub">nenhum</span>}</td>
+                  <td>
+                    <select
+                      className="input"
+                      value={r.agent?.id ?? ''}
+                      title={
+                        r.agent
+                          ? `${r.agent.name} responde nesta conversa`
+                          : 'Sem agente: a IA não responde esta conversa'
+                      }
+                      onChange={(e) => void trocarAgente(r, e.target.value || null)}
+                    >
+                      <option value="">— nenhum —</option>
+                      {agents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td>{r.messageCount}</td>
                   <td className="card-sub">{r.lastActivityAt ? timeAgo(r.lastActivityAt) : '—'}</td>
                   <td>

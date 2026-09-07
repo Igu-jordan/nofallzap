@@ -17,6 +17,8 @@ const patchSchema = z.object({
   rhythmEnabled: z.boolean().optional(),
   /// modo do alerta de qualidade. null volta a seguir o padrao do painel.
   riskAction: z.enum(['avisar', 'reduzir', 'desligar']).nullable().optional(),
+  /// quem atende quem chama este numero direto no privado. null = ninguem.
+  dmAgentId: z.string().uuid().nullable().optional(),
   activeMinutes: z.number().int().min(1).max(1440).optional(),
   pauseMinutes: z.number().int().min(0).max(1440).optional(),
   workStartHour: z.number().int().min(0).max(23).optional(),
