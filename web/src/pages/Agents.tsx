@@ -1,9 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
-import { api, MODELS, type AgentRow, type AgentInput } from '../api';
+import {
+  api,
+  MODELS,
+  TIPO_AGENTE_LABEL,
+  type AgentRow,
+  type AgentInput,
+  type TipoAgente,
+} from '../api';
 import { Toggle, ErrorBox } from '../components/Common';
 
 const BLANK: AgentInput = {
   name: '',
+  kind: 'grupo',
   systemPrompt: '',
   whenToSpeak: '',
   model: 'gpt-4o-mini',
@@ -40,6 +48,27 @@ O que voce NAO faz:
 - se pedirem algo fora disso, diga que vai chamar alguem da equipe
 
 Tom: educado, direto, informal. Trate por voce.`;
+
+/**
+ * Exemplo para agente de PRIVADO. Repare na diferenca de postura: aqui a
+ * pessoa ja veio falar com voce, entao nao ha hora para escolher — e e aqui
+ * que entra o que nao se diz na frente do grupo.
+ */
+const EXEMPLO_PRIVADO = `Voce conversa no privado com quem procurou a [DIJ DIGITAL].
+
+A pessoa veio falar com voce, entao va direto ao ponto.
+
+O que voce faz:
+- entende o que a pessoa precisa antes de falar de preco
+- explica como funciona o servico, em duas ou tres frases
+- combina um horario para falar com alguem da equipe
+
+O que voce NAO faz:
+- nunca inventa preco, prazo ou desconto que nao esteja escrito aqui
+- nunca pede documento, senha ou dado de cartao
+- se pedirem algo fora disso, diga que vai chamar alguem da equipe
+
+Tom: proximo, sem formalidade e sem parecer atendimento automatico.`;
 
 export function Agents({ onBack }: { onBack: () => void }) {
   const [rows, setRows] = useState<AgentRow[]>([]);
@@ -113,10 +142,12 @@ export function Agents({ onBack }: { onBack: () => void }) {
         </button>
       </div>
 
-      <p style={{ color: 'var(--muted)', marginTop: 0, maxWidth: 700 }}>
-        Um agente é um prompt reutilizável. O mesmo agente pode atender vários grupos, em
-        instâncias diferentes. O que muda de um grupo para outro são as instruções específicas,
-        configuradas na aba Grupos.
+      <p style={{ color: 'var(--muted)', marginTop: 0, maxWidth: 760 }}>
+        Um agente é um prompt reutilizável, e existe de dois tipos. O <strong>de grupo</strong>
+        fala em público, no meio de várias pessoas, e precisa escolher a hora de falar. O{' '}
+        <strong>de conversa privada</strong> atende uma pessoa por vez, que já veio falar com ele
+        — é ali que cabe preço e condição, que não se diz na frente do grupo. Cada campo do painel
+        só oferece o tipo que cabe nele.
       </p>
 
       {rows.length === 0 ? (
@@ -126,59 +157,26 @@ export function Agents({ onBack }: { onBack: () => void }) {
           Crie um e depois associe a um grupo na aba Grupos da instância.
         </div>
       ) : (
-        <div className="grid">
-          {rows.map((a) => (
-            <div key={a.id} className="card">
-              <div className="card-head" style={{ marginBottom: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="card-title">{a.name}</div>
-                  <div className="card-sub">{a.model}</div>
-                </div>
-                <Toggle
-                  checked={a.isActive}
-                  onChange={(v) => void api.patchAgent(a.id, { isActive: v }).then(load)}
-                  title={a.isActive ? 'Agente ativo' : 'Agente inativo'}
-                />
-              </div>
-
-              <div
-                style={{
-                  color: 'var(--muted)',
-                  fontSize: 13,
-                  maxHeight: 66,
-                  overflow: 'hidden',
-                  marginBottom: 12,
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {a.systemPrompt.slice(0, 180)}
-                {a.systemPrompt.length > 180 ? '…' : ''}
-              </div>
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  className="btn btn-sm"
-                  onClick={() =>
-                    setEditing({
-                      id: a.id,
-                      name: a.name,
-                      systemPrompt: a.systemPrompt,
-                      whenToSpeak: a.whenToSpeak ?? '',
-                      model: a.model,
-                      temperature: a.temperature,
-                      maxTokens: a.maxTokens,
-                    })
-                  }
-                >
-                  Editar
-                </button>
-                <button className="btn btn-sm btn-danger" onClick={() => void remove(a)}>
-                  Excluir
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <>
+          <SecaoAgentes
+            titulo="Agentes de grupo"
+            explicacao="Falam no grupo, na frente de todo mundo. Só estes aparecem no campo Agente da aba Grupos."
+            agentes={rows.filter((a) => a.kind === 'grupo')}
+            aoEditar={setEditing}
+            aoExcluir={remove}
+            aoAlternar={load}
+            vazio="Nenhum agente de grupo ainda."
+          />
+          <SecaoAgentes
+            titulo="Agentes de conversa privada"
+            explicacao="Atendem uma pessoa por vez. São estes que aparecem em “Agente do privado”, no “Chamar no privado” do grupo e em cada conversa."
+            agentes={rows.filter((a) => a.kind === 'privado')}
+            aoEditar={setEditing}
+            aoExcluir={remove}
+            aoAlternar={load}
+            vazio="Nenhum agente de conversa privada ainda. Sem um destes, quem chamar o número direto não recebe resposta."
+          />
+        </>
       )}
 
       {editing && (
@@ -200,6 +198,33 @@ export function Agents({ onBack }: { onBack: () => void }) {
               />
             </div>
 
+            {/*
+              O TIPO VEM ANTES DO PROMPT, de propósito: ele muda o que se
+              escreve embaixo. Agente de grupo precisa de critério de quando
+              falar; agente de privado não — lá a pessoa já veio falar com ele.
+            */}
+            <div className="field">
+              <label htmlFor="tipo-agente">Tipo</label>
+              <select
+                id="tipo-agente"
+                className="input"
+                value={editing.kind ?? 'grupo'}
+                onChange={(e) =>
+                  setEditing({ ...editing, kind: e.target.value as TipoAgente })
+                }
+              >
+                <option value="grupo">{TIPO_AGENTE_LABEL.grupo} — fala no grupo</option>
+                <option value="privado">
+                  {TIPO_AGENTE_LABEL.privado} — atende uma pessoa por vez
+                </option>
+              </select>
+              <div className="dica-campo">
+                {(editing.kind ?? 'grupo') === 'grupo'
+                  ? 'Fala na frente de todas as pessoas do grupo. Nunca diga preço, condição ou dado de cliente num agente de grupo — para isso existe o de conversa privada.'
+                  : 'Conversa de um para um, com quem já procurou o número. É aqui que cabe preço, condição e proposta.'}
+              </div>
+            </div>
+
             <div className="field">
               <label>
                 Prompt do agente{' '}
@@ -207,7 +232,13 @@ export function Agents({ onBack }: { onBack: () => void }) {
                   <button
                     className="btn btn-sm"
                     style={{ marginLeft: 8 }}
-                    onClick={() => setEditing({ ...editing, systemPrompt: EXAMPLE })}
+                    onClick={() =>
+                      setEditing({
+                        ...editing,
+                        systemPrompt:
+                          (editing.kind ?? 'grupo') === 'privado' ? EXEMPLO_PRIVADO : EXAMPLE,
+                      })
+                    }
                   >
                     usar exemplo
                   </button>
@@ -218,7 +249,7 @@ export function Agents({ onBack }: { onBack: () => void }) {
                 rows={12}
                 style={{ resize: 'vertical', fontFamily: 'inherit' }}
                 value={editing.systemPrompt}
-                placeholder={EXAMPLE}
+                placeholder={(editing.kind ?? 'grupo') === 'privado' ? EXEMPLO_PRIVADO : EXAMPLE}
                 onChange={(e) => setEditing({ ...editing, systemPrompt: e.target.value })}
               />
             </div>
@@ -234,6 +265,7 @@ export function Agents({ onBack }: { onBack: () => void }) {
               insistir, na dúvida ficar quieto) continuam no sistema e valem
               para todo agente — são elas que protegem o chip.
             */}
+            {(editing.kind ?? 'grupo') === 'grupo' && (
             <div className="field">
               <label>
                 Quando entrar na conversa{' '}
@@ -265,6 +297,7 @@ export function Agents({ onBack }: { onBack: () => void }) {
                 ficar quieto. Vazio: decide só pelo prompt acima.
               </div>
             </div>
+            )}
 
             <div style={{ display: 'flex', gap: 12 }}>
               <div className="field" style={{ flex: 2 }}>
@@ -327,5 +360,106 @@ export function Agents({ onBack }: { onBack: () => void }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Uma seção da lista: os agentes de um tipo só.
+ *
+ * Separar em duas listas em vez de um selo colorido no card é de propósito.
+ * O selo você lê; a seção você entende sem ler — e a pergunta que a tela
+ * precisa responder de relance é "eu já tenho agente de privado?", não "de
+ * que tipo é este aqui".
+ */
+function SecaoAgentes({
+  titulo,
+  explicacao,
+  agentes,
+  vazio,
+  aoEditar,
+  aoExcluir,
+  aoAlternar,
+}: {
+  titulo: string;
+  explicacao: string;
+  agentes: AgentRow[];
+  vazio: string;
+  aoEditar: (a: AgentInput & { id: string }) => void;
+  aoExcluir: (a: AgentRow) => void;
+  aoAlternar: () => Promise<void>;
+}) {
+  return (
+    <section style={{ marginBottom: 30 }}>
+      <h2 className="titulo-secao" style={{ fontSize: 17, marginBottom: 4 }}>
+        {titulo}
+      </h2>
+      <p className="dica-campo" style={{ marginTop: 0, marginBottom: 14, maxWidth: 700 }}>
+        {explicacao}
+      </p>
+
+      {agentes.length === 0 ? (
+        <div className="empty">{vazio}</div>
+      ) : (
+        <div className="grid">
+          {agentes.map((a) => (
+            <div key={a.id} className="card">
+              <div className="card-head" style={{ marginBottom: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="card-title">{a.name}</div>
+                  <div className="card-sub">
+                    {a.model}
+                    {a.kind === 'grupo' && !a.whenToSpeak?.trim()
+                      ? ' · sem critério de quando falar'
+                      : ''}
+                  </div>
+                </div>
+                <Toggle
+                  checked={a.isActive}
+                  onChange={(v) => void api.patchAgent(a.id, { isActive: v }).then(aoAlternar)}
+                  title={a.isActive ? 'Agente ativo' : 'Agente inativo'}
+                />
+              </div>
+
+              <div
+                style={{
+                  color: 'var(--muted)',
+                  fontSize: 13,
+                  maxHeight: 66,
+                  overflow: 'hidden',
+                  marginBottom: 12,
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {a.systemPrompt.slice(0, 180)}
+                {a.systemPrompt.length > 180 ? '…' : ''}
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  className="btn btn-sm"
+                  onClick={() =>
+                    aoEditar({
+                      id: a.id,
+                      name: a.name,
+                      kind: a.kind,
+                      systemPrompt: a.systemPrompt,
+                      whenToSpeak: a.whenToSpeak ?? '',
+                      model: a.model,
+                      temperature: a.temperature,
+                      maxTokens: a.maxTokens,
+                    })
+                  }
+                >
+                  Editar
+                </button>
+                <button className="btn btn-sm btn-danger" onClick={() => aoExcluir(a)}>
+                  Excluir
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

@@ -159,6 +159,25 @@ model Instance {
 model Agent {
   id           String   @id @default(uuid())
   name         String
+
+  /**
+   * PARA ONDE ESTE AGENTE SERVE: "grupo" ou "privado".
+   *
+   * Sao dois trabalhos diferentes, com regras diferentes. No grupo ele e um
+   * entre varios, fala em publico e precisa decidir a HORA de falar. No
+   * privado ele conversa com uma pessoa so, que veio falar com ele — nao ha
+   * hora para escolher, e o que se diz ali (preco, condicao, dado de
+   * cliente) nao e o que se diz na frente de todo mundo.
+   *
+   * Misturar os dois era o caminho curto para o agente de grupo soltar preco
+   * em publico. A tela so oferece agente de grupo onde cabe grupo, e agente
+   * de privado onde cabe privado.
+   *
+   * Padrao "grupo" porque e o que os agentes existentes eram quando este
+   * campo nasceu.
+   */
+  kind String @default("grupo")
+
   systemPrompt String   @map("system_prompt")
 
   /**

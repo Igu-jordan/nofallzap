@@ -83,6 +83,8 @@ export async function settingsRoutes(app: FastifyInstance) {
     const parsed = z
       .object({
         name: z.string().min(2).max(60),
+        /// para onde ele serve: grupo (fala em publico) ou privado (1 a 1)
+        kind: z.enum(['grupo', 'privado']).optional(),
         systemPrompt: z.string().min(1).max(20_000),
         /// criterio de "quando entrar na conversa" do modo Inteligente
         whenToSpeak: z.string().max(4000).nullable().optional(),
@@ -100,6 +102,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     const parsed = z
       .object({
         name: z.string().min(2).max(60).optional(),
+        kind: z.enum(['grupo', 'privado']).optional(),
         systemPrompt: z.string().min(1).max(20_000).optional(),
         whenToSpeak: z.string().max(4000).nullable().optional(),
         model: z.string().optional(),

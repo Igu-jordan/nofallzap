@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { erroDeTipoDoAgente } from '../services/agentKind.js';
 import { logEvent } from '../services/eventLog.js';
 
 /**
@@ -97,6 +98,10 @@ export async function contactRoutes(app: FastifyInstance) {
 
     const contact = await prisma.contact.findUnique({ where: { id: contactId } });
     if (!contact) return reply.code(404).send({ error: 'contato nao encontrado' });
+
+    // Aqui e conversa de um para um: so cabe agente de conversa privada.
+    const erroAgente = await erroDeTipoDoAgente(parsed.data.agentId, 'privado');
+    if (erroAgente) return reply.code(400).send({ error: erroAgente });
 
     const updated = await prisma.contact.update({ where: { id: contactId }, data: parsed.data });
 

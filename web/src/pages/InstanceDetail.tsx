@@ -21,6 +21,7 @@ import {
   SeloRisco,
   SinaisRiscoTabela,
 } from '../components/Risco';
+import { SeletorAgente } from '../components/SeletorAgente';
 import { QrModal } from '../components/QrModal';
 import { Contacts } from './Contacts';
 
@@ -441,18 +442,13 @@ function Groups({ instanceId, onChanged }: { instanceId: string; onChanged: () =
                   </td>
                   <td>{g.participantsCount || '—'}</td>
                   <td>
-                    <select
-                      className="input"
-                      value={g.agentId ?? ''}
-                      onChange={(e) => void patch(g, { agentId: e.target.value || null })}
-                    >
-                      <option value="">— nenhum —</option>
-                      {agents.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Só agente de grupo: quem fala aqui fala na frente de todos. */}
+                    <SeletorAgente
+                      agents={agents}
+                      tipo="grupo"
+                      valor={g.agentId}
+                      onChange={(id) => void patch(g, { agentId: id })}
+                    />
                   </td>
                   <td>
                     <select
@@ -482,19 +478,15 @@ function Groups({ instanceId, onChanged }: { instanceId: string; onChanged: () =
                         }
                         onChange={(v) => void patch(g, { escalationEnabled: v })}
                       />
-                      <select
-                        className="input"
+                      {/* Quem atende no privado quem sai deste grupo. */}
+                      <SeletorAgente
+                        agents={agents}
+                        tipo="privado"
+                        valor={g.dmAgentId}
+                        onChange={(id) => void patch(g, { dmAgentId: id })}
+                        rotuloVazio="— agente do privado —"
                         style={{ flex: 1 }}
-                        value={g.dmAgentId ?? ''}
-                        onChange={(e) => void patch(g, { dmAgentId: e.target.value || null })}
-                      >
-                        <option value="">— agente do privado —</option>
-                        {agents.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                   </td>
                   <td style={{ color: 'var(--muted)', fontSize: 13 }}>{timeAgo(g.lastActivityAt)}</td>
@@ -610,20 +602,15 @@ function Settings({ data, onChanged }: { data: Detail; onChanged: () => void }) 
 
         <div className="field">
           <label htmlFor="dm-agent">Agente do privado</label>
-          <select
+          <SeletorAgente
             id="dm-agent"
-            className="input"
-            value={data.dmAgentId ?? ''}
+            agents={agents}
+            tipo="privado"
+            valor={data.dmAgentId}
             disabled={saving}
-            onChange={(e) => void save({ dmAgentId: e.target.value || null })}
-          >
-            <option value="">— ninguém atende —</option>
-            {agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+            rotuloVazio="— ninguém atende —"
+            onChange={(id) => void save({ dmAgentId: id })}
+          />
           <div className="dica-campo">
             Atende quem chama este número direto no WhatsApp, sem ter passado por grupo. Vazio
             significa que ninguém responde essas mensagens — elas continuam sendo guardadas em

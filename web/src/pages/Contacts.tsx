@@ -9,6 +9,7 @@ import {
 } from '../api';
 import { Toggle, ErrorBox } from '../components/Common';
 import { IconeHistorico } from '../components/Icons';
+import { SeletorAgente } from '../components/SeletorAgente';
 
 /**
  * CONVERSAS PRIVADAS.
@@ -173,23 +174,13 @@ export function Contacts({
                     )}
                   </td>
                   <td>
-                    <select
-                      className="input"
-                      value={r.agent?.id ?? ''}
-                      title={
-                        r.agent
-                          ? `${r.agent.name} responde nesta conversa`
-                          : 'Sem agente: a IA não responde esta conversa'
-                      }
-                      onChange={(e) => void trocarAgente(r, e.target.value || null)}
-                    >
-                      <option value="">— nenhum —</option>
-                      {agents.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Conversa de um para um: só agente de conversa privada. */}
+                    <SeletorAgente
+                      agents={agents}
+                      tipo="privado"
+                      valor={r.agent?.id ?? null}
+                      onChange={(id) => void trocarAgente(r, id)}
+                    />
                   </td>
                   <td>{r.messageCount}</td>
                   <td className="card-sub">{r.lastActivityAt ? timeAgo(r.lastActivityAt) : '—'}</td>

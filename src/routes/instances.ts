@@ -8,6 +8,7 @@ import * as evo from '../evolution/client.js';
 import { log } from '../lib/logger.js';
 import { logEvent } from '../services/eventLog.js';
 import { acaoDaInstancia } from '../services/risk.js';
+import { erroDeTipoDoAgente } from '../services/agentKind.js';
 
 const createSchema = z.object({ name: z.string().min(2).max(60) });
 const patchSchema = z.object({
@@ -139,6 +140,11 @@ export async function instanceRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const parsed = patchSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'payload invalido' });
+
+    // O "agente do privado" atende quem chama o numero direto: conversa de um
+    // para um, e so cabe agente de conversa privada.
+    const erroAgente = await erroDeTipoDoAgente(parsed.data.dmAgentId, 'privado');
+    if (erroAgente) return reply.code(400).send({ error: erroAgente });
 
     const instance = await prisma.instance.update({ where: { id }, data: parsed.data });
     return instance;

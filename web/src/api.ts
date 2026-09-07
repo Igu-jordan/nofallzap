@@ -176,9 +176,23 @@ export interface ContactDetail extends ContactRow {
   }>;
 }
 
+/**
+ * Para onde o agente serve. São dois trabalhos diferentes: no grupo ele fala
+ * em público e precisa escolher a hora; no privado conversa com uma pessoa
+ * só, que já veio falar com ele — e é ali que entra preço e condição, que
+ * não se diz na frente de todo mundo.
+ */
+export type TipoAgente = 'grupo' | 'privado';
+
+export const TIPO_AGENTE_LABEL: Record<TipoAgente, string> = {
+  grupo: 'De grupo',
+  privado: 'De conversa privada',
+};
+
 export interface AgentRow {
   id: string;
   name: string;
+  kind: TipoAgente;
   systemPrompt: string;
   /// critério de "quando entrar na conversa", usado pelo modo Inteligente
   whenToSpeak: string | null;
@@ -190,6 +204,7 @@ export interface AgentRow {
 
 export interface AgentInput {
   name: string;
+  kind?: TipoAgente;
   systemPrompt: string;
   whenToSpeak?: string | null;
   model?: string;

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { erroDeTipoDoAgente } from '../services/agentKind.js';
 import { publishRealtime } from '../lib/redis.js';
 
 const patchSchema = z.object({
@@ -70,10 +71,15 @@ export async function groupRoutes(app: FastifyInstance) {
     const group = await prisma.group.findUnique({ where: { id: groupId } });
     if (!group) return reply.code(404).send({ error: 'grupo nao encontrado' });
 
-    for (const id of [parsed.data.agentId, parsed.data.dmAgentId]) {
-      if (!id) continue;
-      const agent = await prisma.agent.findUnique({ where: { id } });
-      if (!agent) return reply.code(400).send({ error: 'agente nao encontrado' });
+    // Cada agente no seu lugar: o do grupo fala em publico, o do privado
+    // conversa com uma pessoa so. Trocar um pelo outro e o caminho curto para
+    // preco sair na frente do grupo inteiro.
+    for (const [id, tipo] of [
+      [parsed.data.agentId, 'grupo'] as const,
+      [parsed.data.dmAgentId, 'privado'] as const,
+    ]) {
+      const erro = await erroDeTipoDoAgente(id, tipo);
+      if (erro) return reply.code(400).send({ error: erro });
     }
 
     // Ligar o escalonamento sem agente do privado nao faz nada: o motor exige
