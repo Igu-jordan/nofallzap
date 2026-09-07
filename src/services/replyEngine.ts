@@ -5,7 +5,7 @@ import { logEvent, bumpMetricBoth } from './eventLog.js';
 import { shouldReply, shouldReplyDm, jidToNumber } from './decisionGate.js';
 import { buildPrompt, buildDmPrompt, buildSummaryPrompt } from '../ai/prompt.js';
 import { complete, aiConfigured, AiError } from '../ai/provider.js';
-import { getSendQueue } from '../queues/index.js';
+import { getSendQueue, retryDmDecision } from '../queues/index.js';
 import type { Message } from '@prisma/client';
 
 /**
@@ -356,11 +356,18 @@ async function handleEscalation(args: {
 // ------------------------------------------------- FILA 2: decisao no privado
 
 /**
- * Mesmo desenho do grupo: le o que chegou desde a ultima leitura, marca como
- * lido ANTES do portao (senao uma conversa em cooldown acumula e despeja tudo
- * junto depois) e entrega na fila de envio da instancia — o privado divide o
- * mesmo rate limit por numero que as respostas de grupo, de proposito.
+ * Quase o mesmo desenho do grupo: le o que chegou desde a ultima leitura e
+ * entrega na fila de envio da instancia — o privado divide o mesmo rate limit
+ * por numero que as respostas de grupo, de proposito.
+ *
+ * A diferenca esta no cooldown. No grupo, mensagem barrada e descartada (senao
+ * um grupo movimentado acumula e despeja tudo junto quando o cooldown vence).
+ * No privado, descartar significa deixar alguem sem resposta — entao a
+ * decisao e REAGENDADA para quando o cooldown vencer. Ver abaixo.
  */
+/// Acima disto, responder ja nao ajuda: descarta como antes.
+const TETO_REAGENDAMENTO_MS = 5 * 60_000;
+
 export async function processDmDecision(instanceId: string, contactId: string) {
   const started = Date.now();
 
@@ -420,12 +427,35 @@ export async function processDmDecision(instanceId: string, contactId: string) {
   if (incoming.length === 0) return;
 
   const lastId = incoming[incoming.length - 1].id;
+  const gate = await shouldReplyDm({ instance, contact, incoming });
+
+  /**
+   * RECUSA COM PRAZO — nao marca como lido, reagenda.
+   *
+   * Antes, o "lido" era gravado ANTES do portao, para uma conversa em
+   * cooldown nao acumular e despejar tudo junto depois. Num GRUPO isso e
+   * certo. Numa conversa 1:1 e o pior resultado possivel: a pessoa mandou
+   * duas mensagens seguidas, a segunda caiu dentro do cooldown de 15s e foi
+   * DESCARTADA — ela perguntou e nunca recebeu resposta. Silencio, e nenhum
+   * erro em lugar nenhum.
+   *
+   * Agora a mensagem continua pendente e a decisao volta quando o cooldown
+   * vence. O cooldown segue valendo (no maximo uma resposta por janela); o
+   * que muda e que a pergunta e respondida com alguns segundos de atraso em
+   * vez de sumir. Como o prazo vem do lastReplyAt, que so anda quando uma
+   * resposta sai, ele encurta a cada volta e nao existe laco.
+   */
+  if (!gate.allow && gate.retryInMs && gate.retryInMs <= TETO_REAGENDAMENTO_MS) {
+    await retryDmDecision(instanceId, contactId, gate.retryInMs + 500);
+    log.debug('dm.reagendado', { instanceId, contactId, emMs: gate.retryInMs });
+    return;
+  }
+
   await prisma.contact.update({
     where: { id: contactId },
     data: { lastProcessedMessageId: lastId },
   });
 
-  const gate = await shouldReplyDm({ instance, contact, incoming });
   if (!gate.allow) {
     await logEvent({
       instanceId,

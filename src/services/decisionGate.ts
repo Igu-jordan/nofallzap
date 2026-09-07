@@ -33,9 +33,22 @@ export interface GateContext {
 export interface GateResult {
   allow: boolean;
   reason: string;
+  /**
+   * "Nao agora, mas daqui a tanto sim."
+   *
+   * Preenchido so quando a recusa e TEMPORARIA e o tempo e conhecido — hoje,
+   * o cooldown do privado. Quem chama usa isto para reagendar em vez de
+   * descartar a mensagem. Recusa sem este campo e definitiva para aquele
+   * bloco: IA desligada, sem agente, teto do dia batido.
+   */
+  retryInMs?: number;
 }
 
-const deny = (reason: string): GateResult => ({ allow: false, reason });
+const deny = (reason: string, retryInMs?: number): GateResult => ({
+  allow: false,
+  reason,
+  ...(retryInMs !== undefined ? { retryInMs } : {}),
+});
 
 /**
  * Numeros gerenciados pelo proprio painel, em cache.
@@ -268,10 +281,18 @@ export async function shouldReplyDm(ctx: {
   });
   if (kept.length === 0) return deny('nenhuma mensagem elegivel (sem texto ou do proprio painel)');
 
+  // COOLDOWN DO PRIVADO — intervalo minimo entre duas respostas da IA para a
+  // MESMA pessoa. Existe para o numero nao metralhar quem manda tres
+  // mensagens seguidas: uma pessoa responderia uma vez, ao bloco inteiro.
+  //
+  // Diferente do grupo, aqui a recusa vem com prazo: numa conversa 1:1
+  // descartar a pergunta e o pior resultado possivel — a pessoa perguntou e
+  // ficou sem resposta. Com o prazo, quem chamou reagenda e responde depois.
   if (contact.cooldownSeconds > 0 && contact.lastReplyAt) {
     const elapsed = (Date.now() - contact.lastReplyAt.getTime()) / 1000;
     if (elapsed < contact.cooldownSeconds) {
-      return deny(`cooldown: faltam ${Math.ceil(contact.cooldownSeconds - elapsed)}s`);
+      const faltam = contact.cooldownSeconds - elapsed;
+      return deny(`cooldown: faltam ${Math.ceil(faltam)}s`, Math.ceil(faltam * 1000));
     }
   }
 

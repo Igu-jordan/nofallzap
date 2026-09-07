@@ -121,6 +121,46 @@ export async function scheduleDmDecision(
   return schedule(`dm:${instanceId}:${contactId}`, { instanceId, contactId }, debounceMs);
 }
 
+/**
+ * REAGENDA a decisao de uma conversa privada de dentro do proprio job.
+ *
+ * Precisa de jobId proprio: quando isto e chamado, o job `dm:...` esta em
+ * ACTIVE (e ele mesmo que esta rodando), e o debounce recusa mexer em job
+ * ativo — o reagendamento viraria um no-op silencioso e a mensagem sumiria
+ * de vez, que e exatamente o problema que este caminho existe para resolver.
+ *
+ * Os dois jobs nunca se atropelam: o worker segura o mesmo lock
+ * `dm:{instancia}:{contato}` para os dois, e quem chegar depois nao encontra
+ * mensagem nova para processar.
+ */
+export async function retryDmDecision(instanceId: string, contactId: string, delayMs: number) {
+  const queue = getDecideQueue();
+  const jobId = `dmr:${instanceId}:${contactId}`;
+
+  const existing = await queue.getJob(jobId);
+  if (existing) {
+    const state = await existing.getState();
+    if (state === 'delayed' || state === 'waiting') {
+      try {
+        await existing.changeDelay(delayMs);
+        return;
+      } catch {
+        /* saiu do estado entre a leitura e a escrita — cai no add abaixo */
+      }
+    } else if (state === 'active') {
+      return;
+    } else {
+      try {
+        await existing.remove();
+      } catch {
+        /* ignora corrida */
+      }
+    }
+  }
+
+  await queue.add('decide', { instanceId, contactId }, { jobId, delay: delayMs });
+}
+
 async function schedule(jobId: string, payload: DecideJob, debounceMs: number) {
   const queue = getDecideQueue();
 
