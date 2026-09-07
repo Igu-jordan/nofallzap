@@ -5,10 +5,27 @@ import { Toggle, ErrorBox } from '../components/Common';
 const BLANK: AgentInput = {
   name: '',
   systemPrompt: '',
+  whenToSpeak: '',
   model: 'gpt-4o-mini',
   temperature: 0.7,
   maxTokens: 500,
 };
+
+/**
+ * Exemplo escrito para grupo de rede, que e o caso dificil: varias pessoas
+ * conversando entre si e ninguem conhecendo voce. Repare que ele descreve
+ * SITUACOES, nao palavras — quem julga e a IA, nao um filtro de texto.
+ */
+const EXEMPLO_QUANDO_FALAR = `Fale quando:
+- alguem pedir indicacao de quem faca [O QUE VOCE FAZ]
+- alguem contar um problema que voce resolve
+- alguem perguntar preco, prazo ou como funciona [SEU SERVICO]
+- falarem com voce pelo nome
+
+Fique quieto quando:
+- o assunto for outro
+- alguem ja tiver respondido a pergunta
+- for so conversa do dia a dia, bom dia, piada`;
 
 const EXAMPLE = `Voce atende o grupo de clientes da [SUA EMPRESA].
 
@@ -146,6 +163,7 @@ export function Agents({ onBack }: { onBack: () => void }) {
                       id: a.id,
                       name: a.name,
                       systemPrompt: a.systemPrompt,
+                      whenToSpeak: a.whenToSpeak ?? '',
                       model: a.model,
                       temperature: a.temperature,
                       maxTokens: a.maxTokens,
@@ -203,6 +221,49 @@ export function Agents({ onBack }: { onBack: () => void }) {
                 placeholder={EXAMPLE}
                 onChange={(e) => setEditing({ ...editing, systemPrompt: e.target.value })}
               />
+            </div>
+
+            {/*
+              QUANDO ESTE AGENTE ENTRA NA CONVERSA.
+
+              Fica no agente, não no código: o mesmo painel atende grupos
+              diferentes, e cada agente tem um trabalho diferente. Trocar o
+              critério não pode exigir mexer no sistema.
+
+              As travas de segurança (não responder conversa alheia, não
+              insistir, na dúvida ficar quieto) continuam no sistema e valem
+              para todo agente — são elas que protegem o chip.
+            */}
+            <div className="field">
+              <label>
+                Quando entrar na conversa{' '}
+                {!editing.id && (
+                  <button
+                    className="btn btn-sm"
+                    style={{ marginLeft: 8 }}
+                    onClick={() =>
+                      setEditing({ ...editing, whenToSpeak: EXEMPLO_QUANDO_FALAR })
+                    }
+                  >
+                    usar exemplo
+                  </button>
+                )}
+              </label>
+              <textarea
+                className="input"
+                rows={5}
+                style={{ resize: 'vertical', fontFamily: 'inherit' }}
+                value={editing.whenToSpeak ?? ''}
+                placeholder={EXEMPLO_QUANDO_FALAR}
+                onChange={(e) => setEditing({ ...editing, whenToSpeak: e.target.value })}
+              />
+              <div className="dica-campo">
+                Vale só nos grupos com o modo <strong>Inteligente</strong>. Antes de escrever
+                qualquer resposta, o painel lê a conversa e decide se é hora de falar — este texto
+                é o critério dele. Em cima disso valem sempre as regras do sistema: não entrar em
+                conversa entre outras pessoas, não insistir quando ninguém respondeu, e na dúvida
+                ficar quieto. Vazio: decide só pelo prompt acima.
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: 12 }}>

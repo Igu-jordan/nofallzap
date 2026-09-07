@@ -2,10 +2,11 @@ import { prisma } from '../lib/prisma.js';
 import { env } from '../config/env.js';
 import { log } from '../lib/logger.js';
 import { logEvent, bumpMetricBoth } from './eventLog.js';
-import { shouldReply, shouldReplyDm, jidToNumber } from './decisionGate.js';
+import { shouldReply, shouldReplyDm, jidToNumber, nomesDaGente } from './decisionGate.js';
 import { buildPrompt, buildDmPrompt, buildSummaryPrompt } from '../ai/prompt.js';
 import { complete, aiConfigured, AiError } from '../ai/provider.js';
 import { getSendQueue, retryDmDecision } from '../queues/index.js';
+import { deveEntrarNaConversa } from './participationEngine.js';
 import type { Message } from '@prisma/client';
 
 /**
@@ -95,6 +96,49 @@ export async function processGroupDecision(instanceId: string, groupId: string) 
   const history = recent.filter((m) => !incomingIds.has(m.id));
 
   const memory = await prisma.groupMemory.findUnique({ where: { groupId } });
+
+  /**
+   * MOTOR DE DECISÃO — só no modo Inteligente, e só quando o pré-filtro de
+   * graça já disse que pode ser com a gente.
+   *
+   * Roda ANTES de montar o prompt do agente: se a resposta for "não fale",
+   * não se paga a chamada boa. O contexto vai igual ao que o agente veria,
+   * senão ele julgaria uma conversa e responderia outra.
+   */
+  if (gate.precisaMotor) {
+    const decisao = await deveEntrarNaConversa({
+      quemSou: group.agent!.systemPrompt,
+      criterioDoAgente: group.agent!.whenToSpeak,
+      nomes: nomesDaGente(instance),
+      groupSubject: group.subject,
+      recent: history
+        .filter((m) => m.content)
+        .map((m) => ({ author: authorOf(m), text: m.content as string, fromAi: m.isFromAi })),
+      incoming: incoming
+        .filter((m) => m.content && m.direction === 'inbound' && !m.isFromAi)
+        .map((m) => ({ author: authorOf(m), text: m.content as string })),
+    });
+
+    if (!decisao.falar) {
+      await bumpMetricBoth(instanceId, groupId, 'ignoredByAi');
+      await logEvent({
+        instanceId,
+        groupId,
+        level: 'info',
+        event: 'ficou_quieto',
+        message: `nao entrou na conversa: ${decisao.motivo}`,
+      });
+      return;
+    }
+
+    await logEvent({
+      instanceId,
+      groupId,
+      level: 'info',
+      event: 'vai_falar',
+      message: `entrou na conversa: ${decisao.motivo}`,
+    });
+  }
 
   const escalation = group.escalationEnabled && Boolean(group.dmAgentId);
 

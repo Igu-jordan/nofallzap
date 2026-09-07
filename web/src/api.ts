@@ -97,6 +97,8 @@ export interface InstanceDetail extends InstanceSummary {
   warmupEnabled: boolean;
   /// quem atende quem chama este número direto no privado; null = ninguém
   dmAgentId: string | null;
+  /// outros nomes pelos quais chamam este número no grupo
+  nicknames: string[];
 }
 
 export interface GroupRow {
@@ -178,6 +180,8 @@ export interface AgentRow {
   id: string;
   name: string;
   systemPrompt: string;
+  /// critério de "quando entrar na conversa", usado pelo modo Inteligente
+  whenToSpeak: string | null;
   model: string;
   temperature: number;
   maxTokens: number;
@@ -187,6 +191,7 @@ export interface AgentRow {
 export interface AgentInput {
   name: string;
   systemPrompt: string;
+  whenToSpeak?: string | null;
   model?: string;
   temperature?: number;
   maxTokens?: number;
@@ -304,6 +309,7 @@ export const api = {
       workEndHour?: number;
       riskAction?: AcaoRisco | null;
       dmAgentId?: string | null;
+      nicknames?: string[];
     },
   ) =>
     call<InstanceSummary>(`/api/instances/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),

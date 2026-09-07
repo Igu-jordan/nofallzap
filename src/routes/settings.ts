@@ -84,6 +84,8 @@ export async function settingsRoutes(app: FastifyInstance) {
       .object({
         name: z.string().min(2).max(60),
         systemPrompt: z.string().min(1).max(20_000),
+        /// criterio de "quando entrar na conversa" do modo Inteligente
+        whenToSpeak: z.string().max(4000).nullable().optional(),
         model: z.string().optional(),
         temperature: z.number().min(0).max(2).optional(),
         maxTokens: z.number().int().min(50).max(8000).optional(),
@@ -99,6 +101,7 @@ export async function settingsRoutes(app: FastifyInstance) {
       .object({
         name: z.string().min(2).max(60).optional(),
         systemPrompt: z.string().min(1).max(20_000).optional(),
+        whenToSpeak: z.string().max(4000).nullable().optional(),
         model: z.string().optional(),
         temperature: z.number().min(0).max(2).optional(),
         maxTokens: z.number().int().min(50).max(8000).optional(),

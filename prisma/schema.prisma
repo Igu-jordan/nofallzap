@@ -61,6 +61,16 @@ model Instance {
   dmAgentId String? @map("dm_agent_id")
   dmAgent   Agent?  @relation("InstanceDmAgent", fields: [dmAgentId], references: [id], onDelete: SetNull)
 
+  /**
+   * COMO CHAMAM ESTE NUMERO NO GRUPO.
+   *
+   * A mencao formal do WhatsApp (@numero) e inutil num grupo onde ninguem
+   * conhece a pessoa: ninguem menciona um desconhecido. Mas gente chama pelo
+   * NOME digitado — "Roberta, voce faz isso?". O primeiro nome do
+   * profileName ja entra sozinho; esta lista e para apelidos e variacoes.
+   */
+  nicknames String[] @default([])
+
   // ---------------------------------------------------------------- RITMO
   // Uma pessoa nao fica grudada no WhatsApp 24h por dia. O ritmo vive na
   // INSTANCIA porque quem descansa e a pessoa (o numero), nao o papel: ela
@@ -150,6 +160,24 @@ model Agent {
   id           String   @id @default(uuid())
   name         String
   systemPrompt String   @map("system_prompt")
+
+  /**
+   * QUANDO ESTE AGENTE ENTRA NA CONVERSA (modo Inteligente, em grupo).
+   *
+   * Escrito por quem cria o agente, com as palavras dele: "fale quando
+   * alguem pedir indicacao de designer", "fale quando reclamarem de prazo".
+   * Vive AQUI, e nao no codigo, porque o mesmo painel atende grupos
+   * diferentes e cada agente tem um trabalho diferente — trocar o criterio
+   * nao pode exigir deploy.
+   *
+   * As travas de seguranca (nao responder conversa alheia, nao insistir, na
+   * duvida ficar quieto) continuam no sistema, em participationEngine.ts:
+   * sao elas que protegem o chip e nao devem depender de o agente ter sido
+   * bem escrito.
+   *
+   * Vazio = o motor decide so pelo prompt do agente, sem criterio extra.
+   */
+  whenToSpeak String? @map("when_to_speak")
   model        String   @default("gpt-4o-mini")
   temperature  Float    @default(0.7)
   maxTokens    Int      @default(500) @map("max_tokens")

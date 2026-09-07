@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { chamaramPorNome, listaDeNomes } from '../lib/nomes.js';
 import { redis } from '../lib/redis.js';
 import { isAiGloballyEnabled } from '../routes/settings.js';
 import { checkRhythm } from './rhythm.js';
@@ -42,6 +43,12 @@ export interface GateResult {
    * bloco: IA desligada, sem agente, teto do dia batido.
    */
   retryInMs?: number;
+  /**
+   * Modo inteligente: o bloco passou no pre-filtro de graca, mas ainda
+   * precisa do motor de decisao (uma chamada de IA barata) para dizer se
+   * cabe falar. Quem paga essa chamada e o replyEngine.
+   */
+  precisaMotor?: boolean;
 }
 
 const deny = (reason: string, retryInMs?: number): GateResult => ({
@@ -90,6 +97,21 @@ interface RawMessage {
   };
 }
 
+/**
+ * OS NOMES PELOS QUAIS CHAMAM ESTE NUMERO.
+ *
+ * A regra de casamento vive em lib/nomes.ts, sem dependencia nenhuma, para
+ * poder ser testada sozinha — ver scripts/teste-nomes.mjs.
+ */
+export function nomesDaGente(instance: Pick<Instance, 'profileName' | 'nicknames'>): string[] {
+  return listaDeNomes(instance.profileName, instance.nicknames ?? []);
+}
+
+/** Alguem escreveu o nome dele no meio da frase? */
+function chamaramPeloNome(message: Message, nomes: string[]): boolean {
+  return chamaramPorNome(message.content, nomes);
+}
+
 /** A mensagem menciona o nosso numero, ou responde a uma mensagem nossa? */
 function mentionsUs(message: Message, ourNumber: string): boolean {
   const raw = message.raw as RawMessage | null;
@@ -103,6 +125,22 @@ function mentionsUs(message: Message, ourNumber: string): boolean {
   if (ctx.quotedMessage && jidToNumber(ctx.participant) === ourNumber) return true;
 
   return false;
+}
+
+/**
+ * Falaram com a gente? Menção formal, resposta citada OU o nome escrito.
+ *
+ * O nome é o que faz diferença de verdade num grupo de rede: ninguém usa a
+ * menção com @ para alguém que acabou de conhecer, mas todo mundo escreve o
+ * primeiro nome da pessoa.
+ */
+function falaramComAGente(message: Message, ourNumber: string, nomes: string[]): boolean {
+  return mentionsUs(message, ourNumber) || chamaramPeloNome(message, nomes);
+}
+
+/** O bloco traz alguma pergunta? É a deixa mais comum de oportunidade. */
+function temPergunta(msgs: Message[]): boolean {
+  return msgs.some((m) => (m.content ?? '').includes('?'));
 }
 
 function matchesKeyword(message: Message, keywords: string[]): boolean {
@@ -119,7 +157,7 @@ export async function filterMessages(
   instance: Instance,
   group: Group,
   incoming: Message[],
-): Promise<{ kept: Message[]; reason?: string }> {
+): Promise<{ kept: Message[]; reason?: string; precisaMotor?: boolean }> {
   const managed = await managedNumbers();
   const ourNumber = (instance.phoneNumber ?? '').replace(/\D/g, '');
 
@@ -139,27 +177,49 @@ export async function filterMessages(
     return { kept, reason: 'nenhuma mensagem elegivel (sem texto, propria ou de outro numero do painel)' };
   }
 
+  const nomes = nomesDaGente(instance);
+
   // modo de participacao
   switch (group.participationMode) {
     case 'always':
       return { kept };
     case 'mention': {
-      const hit = kept.some((m) => mentionsUs(m, ourNumber));
-      return hit ? { kept } : { kept: [], reason: 'grupo em modo "so se mencionado" e ninguem mencionou' };
+      const hit = kept.some((m) => falaramComAGente(m, ourNumber, nomes));
+      return hit
+        ? { kept }
+        : { kept: [], reason: 'grupo em modo "so se mencionado" e ninguem chamou pelo nome nem mencionou' };
     }
     case 'keyword': {
       const hit = kept.some((m) => matchesKeyword(m, group.keywords));
       return hit ? { kept } : { kept: [], reason: 'nenhuma palavra-chave do grupo apareceu' };
     }
-    case 'smart':
-      // Modo nao implementado nesta versao: trata como "so se mencionado",
-      // que e o comportamento conservador.
-      {
-        const hit = kept.some((m) => mentionsUs(m, ourNumber));
-        return hit
-          ? { kept }
-          : { kept: [], reason: 'modo "inteligente" ainda nao implementado; tratado como mencao' };
+
+    /**
+     * MODO INTELIGENTE — o pre-filtro de graca.
+     *
+     * Num grupo com conversa cruzada, a maior parte do que passa nao tem nada
+     * a ver com a gente. Chamar a IA para julgar cada bloco custaria dinheiro
+     * o dia inteiro. Entao aqui, sem gastar nada:
+     *
+     *   falaram com a gente  -> responde direto, nem precisa de motor
+     *   pergunta ou palavra  -> pode ser oportunidade: chama o motor
+     *   nada disso           -> silencio, e nao custou um centavo
+     *
+     * Conversa entre outras pessoas sobre outro assunto morre nesta linha.
+     */
+    case 'smart': {
+      if (kept.some((m) => falaramComAGente(m, ourNumber, nomes))) {
+        return { kept, precisaMotor: false };
       }
+      const talvez =
+        temPergunta(kept) || kept.some((m) => matchesKeyword(m, group.keywords));
+      return talvez
+        ? { kept, precisaMotor: true }
+        : {
+            kept: [],
+            reason: 'conversa entre outras pessoas: ninguem chamou pelo nome e nao ha pergunta em aberto',
+          };
+    }
     default:
       return { kept: [], reason: `modo de participacao desconhecido: ${group.participationMode}` };
   }
@@ -193,7 +253,7 @@ export async function shouldReply(ctx: GateContext): Promise<GateResult> {
   if (!group.agent.isActive) return deny(`agente "${group.agent.name}" esta inativo`);
 
   // 6. filtros
-  const { kept, reason } = await filterMessages(instance, group, ctx.incoming);
+  const { kept, reason, precisaMotor } = await filterMessages(instance, group, ctx.incoming);
   if (kept.length === 0) return deny(reason ?? 'filtrada');
 
   // 7. cooldown (barato — antes do motor, de proposito)
@@ -230,7 +290,11 @@ export async function shouldReply(ctx: GateContext): Promise<GateResult> {
   }
   await redis.decr(`active:${instance.id}`);
 
-  return { allow: true, reason: 'ok' };
+  // O motor de decisao (passo 7 da spec) roda DEPOIS do cooldown e do teto
+  // diario, de proposito: sao checagens de banco e Redis que custam quase
+  // nada e evitam pagar uma chamada de IA que ia ser barrada logo em seguida.
+  // Quem chama o motor e o replyEngine — aqui so dizemos que ele e preciso.
+  return { allow: true, reason: 'ok', precisaMotor };
 }
 
 /**

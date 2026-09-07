@@ -294,6 +294,11 @@ function BlocoQualidade({ data, onChanged }: { data: Detail; onChanged: () => vo
   );
 }
 
+/** Primeiro nome do perfil — o que o painel reconhece sozinho no grupo. */
+function primeiroNome(perfil: string | null): string {
+  return perfil?.trim().split(/\s+/)[0] ?? '';
+}
+
 function Kpi({ n, label, accent, danger }: { n: number; label: string; accent?: boolean; danger?: boolean }) {
   return (
     <div className="kpi">
@@ -459,10 +464,10 @@ function Groups({ instanceId, onChanged }: { instanceId: string; onChanged: () =
                         })
                       }
                     >
-                      <option value="mention">Só se mencionado</option>
+                      <option value="mention">Só se chamarem pelo nome</option>
                       <option value="always">Sempre</option>
                       <option value="keyword">Palavra-chave</option>
-                      <option value="smart">Inteligente</option>
+                      <option value="smart">Inteligente (a IA decide a hora)</option>
                     </select>
                   </td>
                   <td>
@@ -524,6 +529,7 @@ function Settings({ data, onChanged }: { data: Detail; onChanged: () => void }) 
     workStartHour?: number;
     workEndHour?: number;
     dmAgentId?: string | null;
+    nicknames?: string[];
   }) {
     setSaving(true);
     try {
@@ -566,6 +572,42 @@ function Settings({ data, onChanged }: { data: Detail; onChanged: () => void }) 
           mensagem por conta própria não veio de grupo nenhum — sem este campo
           a conversa ficava sem agente e a IA não respondia, sem aviso.
         */}
+        {/*
+          COMO CHAMAM ESTE NÚMERO NO GRUPO.
+
+          A menção com @ é inútil num grupo onde ninguém conhece a pessoa —
+          ninguém menciona um desconhecido. Mas todo mundo escreve o primeiro
+          nome. Este campo é o que faz o modo "Só se mencionado" e o
+          "Inteligente" funcionarem de verdade.
+        */}
+        <div className="field">
+          <label htmlFor="apelidos">Como chamam este número no grupo</label>
+          <input
+            id="apelidos"
+            className="input"
+            defaultValue={(data.nicknames ?? []).join(', ')}
+            placeholder="ex: Robertinha, Bete"
+            disabled={saving}
+            onBlur={(e) => {
+              const lista = e.target.value
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
+              if (lista.join(',') !== (data.nicknames ?? []).join(','))
+                void save({ nicknames: lista });
+            }}
+          />
+          <div className="dica-campo">
+            {primeiroNome(data.profileName)
+              ? `“${primeiroNome(data.profileName)}” já é reconhecido sozinho, pelo nome do perfil do WhatsApp. `
+              : 'O nome do perfil do WhatsApp ainda não chegou. '}
+            Acrescente aqui apelidos e variações, separados por vírgula. Quando alguém escrever um
+            desses nomes no grupo, o painel entende que falaram com este número — mesmo sem a
+            menção com @, que ninguém usa com desconhecido. Nomes de até 2 letras são ignorados,
+            para não casar com meio mundo.
+          </div>
+        </div>
+
         <div className="field">
           <label htmlFor="dm-agent">Agente do privado</label>
           <select

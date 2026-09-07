@@ -19,7 +19,9 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:push": "prisma db push",
     "teste:auth": "npm run build:server && node scripts/teste-auth.mjs",
-    "teste:risco": "npm run build:server && node scripts/teste-risco.mjs"
+    "teste:risco": "npm run build:server && node scripts/teste-risco.mjs",
+    "teste:nomes": "npm run build:server && node scripts/teste-nomes.mjs",
+    "teste": "npm run build:server && node scripts/teste-auth.mjs && node scripts/teste-risco.mjs && node scripts/teste-nomes.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",
