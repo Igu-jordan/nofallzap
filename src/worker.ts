@@ -318,11 +318,39 @@ const DELIVERY_FAILURE_LIMIT = 3;
 /// Status que provam que a mensagem saiu de verdade.
 const DELIVERED = new Set(['SERVER_ACK', 'DELIVERY_ACK', 'READ', 'PLAYED']);
 
+/**
+ * O MOTIVO DA RECUSA, quando o WhatsApp diz.
+ *
+ * Junto do status ERROR o Baileys pode mandar messageStubParameters com um
+ * codigo e um texto. O 463 e "Your account has been restricted": o numero
+ * segue conectado, recebe normal, e tudo que ele MANDA e recusado — o
+ * castigo por spam. Era exatamente o sintoma do numero que passou dias
+ * "conectado e mudo" e voltou sozinho.
+ *
+ * Codigo conhecido vale por tres: nao ha por que esperar a terceira recusa
+ * quando o proprio WhatsApp ja disse o que esta acontecendo.
+ */
+const CODIGO_RESTRICAO: Record<string, string> = {
+  '463': 'conta restrita por spam — o WhatsApp bloqueou os envios deste número',
+};
+
+/** Le o codigo/motivo que vem junto do ERROR, se vier. */
+function motivoDaRecusa(u: unknown): { codigo: string; texto: string } | null {
+  const params = (u as { messageStubParameters?: unknown })?.messageStubParameters;
+  if (!Array.isArray(params) || params.length === 0) return null;
+  const codigo = String(params[0] ?? '').trim();
+  if (!codigo) return null;
+  return { codigo, texto: String(params[1] ?? '').trim() };
+}
+
 async function handleMessageUpdate(job: IngestJob) {
-  const raw = job.data as
-    | { status?: string; keyId?: string; key?: { id?: string; remoteJid?: string } }
-    | Array<{ status?: string; keyId?: string; key?: { id?: string; remoteJid?: string } }>
-    | null;
+  type Update = {
+    status?: string;
+    keyId?: string;
+    key?: { id?: string; remoteJid?: string };
+    messageStubParameters?: unknown;
+  };
+  const raw = job.data as Update | Update[] | null;
   const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
 
   for (const u of list) {
@@ -346,15 +374,28 @@ async function handleMessageUpdate(job: IngestJob) {
     if (status !== 'ERROR') continue;
 
     const jid = u?.key?.remoteJid ?? '';
+    const motivo = motivoDaRecusa(u);
+    const restricao = motivo ? CODIGO_RESTRICAO[motivo.codigo] : undefined;
+
     await bumpMetricBoth(job.instanceId, null, 'errors');
     await logEvent({
       instanceId: job.instanceId,
       level: 'error',
       event: 'delivery_failed',
-      message: `O WhatsApp recusou a entrega${jid ? ` para ${jid.split('@')[0]}` : ''}.`,
+      message: restricao
+        ? `O WhatsApp recusou a entrega: ${restricao}.`
+        : `O WhatsApp recusou a entrega${jid ? ` para ${jid.split('@')[0]}` : ''}.` +
+          (motivo ? ` Código ${motivo.codigo}${motivo.texto ? `: ${motivo.texto}` : ''}.` : ''),
       broadcast: true,
     });
-    log.warn('delivery.rejected', { instanceId: job.instanceId, jid, keyId });
+    // O objeto inteiro vai para o log quando o motivo nao veio: e assim que
+    // se descobre o que a Evolution realmente repassa, sem chutar.
+    log.warn('delivery.rejected', {
+      instanceId: job.instanceId,
+      jid,
+      keyId,
+      ...(motivo ? { codigo: motivo.codigo, motivo: motivo.texto } : { bruto: u }),
+    });
 
     const counted = await prisma.instance.update({
       where: { id: job.instanceId },
@@ -363,7 +404,8 @@ async function handleMessageUpdate(job: IngestJob) {
     });
 
     if (counted.deliveryBlockedAt) continue; // ja esta fora do ar
-    if (counted.deliveryFailures < DELIVERY_FAILURE_LIMIT) continue;
+    // Com codigo conhecido nao espera: o WhatsApp ja disse o que e.
+    if (!restricao && counted.deliveryFailures < DELIVERY_FAILURE_LIMIT) continue;
 
     // TIRA O NUMERO DO AR. Continuar gerando resposta com IA para um numero
     // que nao entrega custa dinheiro em silencio — foi exatamente o que
@@ -374,7 +416,9 @@ async function handleMessageUpdate(job: IngestJob) {
         deliveryBlockedAt: new Date(),
         aiEnabled: false,
         warmupEnabled: false,
-        statusDetail: 'Conectado, mas o WhatsApp esta recusando as entregas.',
+        statusDetail: restricao
+          ? `Conectado, mas ${restricao}.`
+          : 'Conectado, mas o WhatsApp esta recusando as entregas.',
       },
     });
 
@@ -382,7 +426,9 @@ async function handleMessageUpdate(job: IngestJob) {
       instanceId: job.instanceId,
       level: 'error',
       event: 'number_auto_paused',
-      message: `${counted.deliveryFailures} entregas recusadas seguidas: IA e maturacao desligadas automaticamente neste numero`,
+      message: restricao
+        ? `${restricao}. IA e maturacao desligadas automaticamente neste numero.`
+        : `${counted.deliveryFailures} entregas recusadas seguidas: IA e maturacao desligadas automaticamente neste numero`,
       broadcast: true,
     });
 
